@@ -176,6 +176,8 @@ textarea.input{resize:vertical;min-height:60px}
 .modal-f .spacer{flex:1}
 .x{border:0;background:none;width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--muted)}
 .x:hover{background:var(--surface-2)}
+.item-row{display:grid;grid-template-columns:minmax(0,2fr) 70px 92px minmax(0,1.2fr) 32px;gap:6px;align-items:center}
+@media (max-width:600px){.item-row{grid-template-columns:72px minmax(0,1fr) minmax(0,1.3fr) 32px;padding-bottom:8px;border-bottom:1px dashed var(--border-2)}.item-row [data-k=producto]{grid-column:1/-1}}
 .photo-prev{max-width:100%;max-height:260px;border-radius:10px;border:1px solid var(--border);display:block}
 @keyframes fade{from{opacity:0}} @keyframes pop{from{transform:translateY(12px);opacity:0}}
 .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#231b28;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:60;box-shadow:0 8px 24px rgba(0,0,0,.25);animation:pop .2s}
@@ -251,10 +253,15 @@ const firebaseConfig = {
 
 /* Listas editables */
 const CENTROS = ['Fábrica Helados','Fábrica Pasteles','Local Antonio Varas','Local La Compañía','Oficina'];
-const CATEGORIAS = ['Materia prima','Insumos y envases','Arriendo','Luz','Agua','Gas','Internet y telefonía','Mantención y reparaciones','Transporte y combustible','Limpieza y aseo','Marketing','Servicios profesionales','Impuestos y patentes','Otros'];
+const CATEGORIAS = ['Materia prima','Insumos y envases','Arriendo','Luz','Agua','Gas','Internet y telefonía','Mantención y reparaciones','Transporte y combustible','Limpieza y aseo','Marketing','Servicios profesionales','Impuestos y patentes','Sueldos y remuneraciones','Otros'];
 const CENTS = () => state.listas?.centros?.length ? state.listas.centros : CENTROS;
 const CATS = () => state.listas?.categorias?.length ? state.listas.categorias : CATEGORIAS;
-const TIPOS = {factura:'Factura', boleta:'Boleta', otro:'Otro'};
+const TIPOS = {factura:'Factura', boleta:'Boleta', sindoc:'Sin boleta', sueldo:'Sueldo', otro:'Otro'};
+const TIPO_SUELDO = {anticipo:'Anticipo', remuneracion:'Remuneración', bono:'Bono', finiquito:'Finiquito', otro:'Otro'};
+const JORNADAS = {full:'Full time', part:'Part time'};
+const UNIDADES = ['un','kg','g','lt','caja','bolsa','bandeja','paquete','saco'];
+const CAT_SUELDOS = 'Sueldos y remuneraciones';
+const TRABS = () => state.listas?.trabajadores || [];
 const PAGOS = {transferencia:'Transferencia', efectivo:'Efectivo', tarjeta:'Tarjeta', credito:'Crédito'};
 const MEDIOS_PAGO_CREDITO = {transferencia:'Transferencia', efectivo:'Efectivo', cheque:'Cheque', tarjeta:'Tarjeta'};
 const PAGO_COLOR = {transferencia:'#3a6fd8', efectivo:'#2c9466', tarjeta:'#9a94a0', credito:'#E9803A'};
@@ -298,6 +305,10 @@ const I = {
   dl:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
   cam:'<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',
   tag:'<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><path d="M7.5 7.5h.01"/>',
+  users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
+  cart:'<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/>',
+  menu:'<path d="M3 6h18M3 12h18M3 18h18"/>',
+  trash:'<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>',
   clip:'<path d="m21.4 11-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/>',
 };
 const ic = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${I[k]}</svg>`;
@@ -305,7 +316,7 @@ const ic = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
 /* ================================================================
    3) CAPA DE DATOS (Firebase o demo local)
    ================================================================ */
-const state = { user:null, gastos:[], fijos:[], view:'dashboard', dashMes:curYM(),
+const state = { user:null, gastos:[], fijos:[], view:'dashboard', dashMes:curYM(), sueldoMes:curYM(), sbMes:curYM(),
   f:{ mes:curYM(), centro:'', cat:'', tipo:'', pago:'', q:'' }, ready:{gastos:false,fijos:false}, error:null };
 
 let store;
@@ -335,7 +346,7 @@ async function firebaseStore(){
 }
 
 function demoStore(){
-  const KEY = 'renni_gastos_demo_v1';
+  const KEY = 'renni_gastos_demo_v2';
   let db = null;
   try { db = JSON.parse(localStorage.getItem(KEY)); } catch {}
   if (!db) db = seedDemo();
@@ -396,6 +407,16 @@ function seedDemo(){
       add({ tipoDoc:'boleta', proveedor:o[0], fecha:`${m}-${pad(day)}`, centro:o[2], categoria:o[1], total:Math.round((8000+rnd()*90000)/10)*10, formaPago: rnd()<.6?'efectivo':'tarjeta' });
     }
   }
+  const trabs = [['María González','full','Local Antonio Varas'],['Pedro Soto','part','Local La Compañía'],['Carla Muñoz','full','Fábrica Helados'],['Diego Rojas','part','Fábrica Pasteles']];
+  db.fijos._listas = { categorias:[...CATEGORIAS], centros:[...CENTROS], trabajadores: trabs.map(([nombre,jornada,centro]) => ({ nombre, jornada, centro, activo:true })) };
+  [shiftYM(ym,-1), ym].forEach((m, k) => trabs.forEach(([nombre,jornada,centro]) => {
+    const base = jornada === 'full' ? 650000 : 330000;
+    add({ tipoDoc:'sueldo', proveedor:nombre, trabajador:nombre, jornada, centro, categoria:'Sueldos y remuneraciones', fecha:`${m}-05`, periodoSueldo:m, tipoPagoSueldo:'anticipo', total:Math.round(base*0.3/1000)*1000, formaPago:'transferencia' });
+    if (k === 0) add({ tipoDoc:'sueldo', proveedor:nombre, trabajador:nombre, jornada, centro, categoria:'Sueldos y remuneraciones', fecha:`${shiftYM(m,1)}-01`, periodoSueldo:m, tipoPagoSueldo:'remuneracion', total:Math.round(base*0.7/1000)*1000, formaPago:'transferencia' });
+  }));
+  [[ `${ym}-02`, 'Feria Rancagua', [['Frutillas',12,'kg',36000],['Plátanos',6,'kg',7200]] ], [ `${ym}-04`, 'Vega', [['Frutillas',10,'kg',30000],['Mango',8,'kg',24000],['Limones',5,'kg',6000]] ], [ `${shiftYM(ym,-1)}-20`, 'Feria Rancagua', [['Frambuesas',5,'kg',27500]] ]]
+    .forEach(([fecha, lugar, its]) => add({ tipoDoc:'sindoc', proveedor:lugar, fecha, centro:'Fábrica Helados', categoria:'Materia prima', formaPago:'efectivo',
+      items: its.map(([producto,cantidad,unidad,monto]) => ({ producto, cantidad, unidad, monto })), total: its.reduce((a,i) => a+i[3], 0) }));
   return db;
 }
 
@@ -463,7 +484,7 @@ function renderLogin(msg=''){
 }
 
 const NAV = [
-  ['dashboard','Resumen','home'], ['gastos','Gastos','list'], ['porpagar','Por pagar','clock'], ['fijos','Gastos fijos','repeat'], ['ajustes','Categorías','tag'] ];
+  ['dashboard','Resumen','home'], ['gastos','Gastos','list'], ['porpagar','Por pagar','clock'], ['fijos','Gastos fijos','repeat'], ['sueldos','Sueldos','users'], ['sinboleta','Compras sin boleta','cart'], ['ajustes','Categorías','tag'] ];
 
 function renderShell(){
   root.innerHTML = `
@@ -477,7 +498,7 @@ function renderShell(){
     </aside>
     <div>
       <header class="topbar"><img src="logo.png" alt=""><b id="topTitle">Resumen</b>
-        <button class="x" data-nav="ajustes" title="Categorías y centros">${ic('tag')}</button><button class="x" data-act="logout" title="Cerrar sesión">${ic('out')}</button></header>
+        <button class="x" data-act="more" title="Más secciones">${ic('menu')}</button><button class="x" data-act="logout" title="Cerrar sesión">${ic('out')}</button></header>
       <main class="main">${DEMO ? `<div class="demo-bar"><b>Modo demo:</b> datos de ejemplo guardados solo en este navegador. Configura Firebase (ver LEEME) para usarla de verdad en todos los dispositivos.</div>` : ''}<div id="view"></div></main>
     </div>
     <nav class="bottomnav">
@@ -505,7 +526,7 @@ function render(){
   const v = $('#view');
   if (state.error) { v.innerHTML = `<div class="card card-b" style="padding:24px"><h3>No tienes acceso</h3><p class="note">${esc(state.error)}</p></div>`; return; }
   if (!state.ready.gastos || !state.ready.fijos) { v.innerHTML = '<div class="empty">Cargando datos…</div>'; return; }
-  ({ dashboard:viewDashboard, gastos:viewGastos, porpagar:viewPorPagar, fijos:viewFijos, ajustes:viewAjustes })[state.view](v);
+  ({ dashboard:viewDashboard, gastos:viewGastos, porpagar:viewPorPagar, fijos:viewFijos, sueldos:viewSueldos, sinboleta:viewSinBoleta, ajustes:viewAjustes })[state.view](v);
 }
 
 /* ---------- Dashboard ---------- */
@@ -591,10 +612,15 @@ function estadoPill(g){
   return `<span class="pill ${d<0?'red':d<=AVISO_FACTURAS_DIAS?'amber':'purple'}">Crédito · ${d<0?'vencida':'pendiente'}</span>`;
 }
 
+function rowSub(g){
+  if (g.tipoDoc === 'sueldo') return `Sueldo · ${TIPO_SUELDO[g.tipoPagoSueldo]||''}${g.periodoSueldo?' '+ymLabel(g.periodoSueldo):''} · ${JORNADAS[g.jornada]||''} · ${esc(g.centro||'')}`;
+  if (g.tipoDoc === 'sindoc') { const it = g.items||[]; return `Sin boleta · ${esc(g.centro||'')} · ${it.length ? esc(it.map(i => i.producto).join(', ')) : esc(g.descripcion||g.categoria||'')}`; }
+  return `${TIPOS[g.tipoDoc]||''}${g.numero?' N° '+esc(g.numero):''} · ${esc(g.centro||'')} · ${esc(g.categoria||'')}${g.descripcion?' · '+esc(g.descripcion):''}`;
+}
 function rowHTML(g){
   return `<button class="row" data-edit="${g.id}">
     <div><div class="r-title">${esc(g.proveedor||'Sin proveedor')}${g.tieneFoto?ic('clip'):''}</div>
-      <div class="r-sub">${TIPOS[g.tipoDoc]||''}${g.numero?' N° '+esc(g.numero):''} · ${esc(g.centro||'')} · ${esc(g.categoria||'')}${g.descripcion?' · '+esc(g.descripcion):''}</div></div>
+      <div class="r-sub">${rowSub(g)}</div></div>
     <div class="r-date">${fdate(g.fecha)}</div>
     <div class="r-state">${estadoPill(g)}</div>
     <div class="r-amt num">${clp(g.total)}</div></button>`;
@@ -691,6 +717,132 @@ function viewFijos(v){
 }
 
 
+
+/* ---------- Trabajadores ---------- */
+const trabOpts = sel => { const act = TRABS().filter(t => t.activo !== false || t.nombre === sel);
+  return `<option value="">— Elegir —</option>` + act.map(t => `<option value="${esc(t.nombre)}" ${t.nombre===sel?'selected':''}>${esc(t.nombre)} (${JORNADAS[t.jornada]||''})</option>`).join('')
+    + (sel && !act.some(t => t.nombre === sel) ? `<option selected>${esc(sel)}</option>` : '') + `<option value="__new">＋ Agregar trabajador…</option>`; };
+
+function trabajadorForm(t, stacked){
+  return new Promise(resolve => {
+    const isNew = !t; t = { jornada:'full', centro:CENTS()[0], activo:true, ...(t||{}) };
+    const wrap = document.createElement('div'); wrap.className = 'modal-bg'; wrap.style.zIndex = 70;
+    wrap.innerHTML = `<form class="modal" novalidate style="max-width:440px"><div class="modal-h"><h3>${isNew?'Nuevo trabajador':'Editar trabajador'}</h3><button type="button" class="x" data-c>${ic('x')}</button></div>
+      <div class="modal-b">
+        <label class="field"><span>Nombre completo</span><input class="input" name="nombre" value="${esc(t.nombre||'')}" required autocomplete="off"></label>
+        <label class="field"><span>Jornada</span>${seg('jornada', JORNADAS, t.jornada)}</label>
+        <label class="field"><span>Centro de costo habitual</span><select class="input" name="centro">${selOpts(CENTS(), t.centro)}</select></label>
+        ${isNew ? '' : `<label style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" name="activo" ${t.activo!==false?'checked':''}> Trabajador activo</label>`}
+      </div>
+      <div class="modal-f"><span class="spacer"></span><button type="button" class="btn" data-c>Cancelar</button><button class="btn btn-primary">Guardar</button></div></form>`;
+    const done = v => { wrap.remove(); if (!stacked && !$('#modal')) document.body.style.overflow = ''; resolve(v); };
+    wrap.querySelectorAll('[data-c]').forEach(b => b.onclick = () => done(null));
+    wrap.addEventListener('mousedown', e => { if (e.target === wrap) done(null); });
+    document.body.appendChild(wrap); document.body.style.overflow = 'hidden'; wrap.querySelector('[name=nombre]').focus();
+    const f = wrap.querySelector('form');
+    f.onsubmit = async e => { e.preventDefault(); const fd = new FormData(f), nombre = fd.get('nombre').trim();
+      if (!nombre) return toast('Falta el nombre');
+      if (TRABS().some(x => x.nombre.toLowerCase() === nombre.toLowerCase() && x.nombre !== t.nombre)) return toast('Ya existe un trabajador con ese nombre');
+      const nuevo = { nombre, jornada:fd.get('jornada'), centro:fd.get('centro'), activo: isNew ? true : !!fd.get('activo') };
+      const list = isNew ? [...TRABS(), nuevo] : TRABS().map(x => x.nombre === t.nombre ? nuevo : x);
+      try {
+        await saveListas(CATS(), CENTS(), list);
+        if (!isNew && t.nombre !== nombre) await Promise.all(state.gastos.filter(g => g.trabajador === t.nombre).map(g => store.update('gastos', g.id, { trabajador:nombre, proveedor:nombre })));
+        toast('Trabajador guardado ✓'); done(nuevo); if (!stacked) render();
+      } catch (err) { toast('No se pudo guardar: ' + (err.code||err.message)); }
+    };
+  });
+}
+
+function moreMenu(){
+  const items = [['sueldos','Sueldos','users','Anticipos y remuneraciones por trabajador'],['sinboleta','Compras sin boleta','cart','Productos comprados sin respaldo'],['ajustes','Categorías y centros','tag','Agregar o cambiar opciones']];
+  const form = openModal('Más secciones', items.map(([k,l,i,d]) => `<button type="button" class="nav-item" data-go="${k}" style="padding:12px;border:1px solid var(--border)">${ic(i)}<span><b style="color:var(--text);display:block">${l}</b><span class="note">${d}</span></span></button>`).join(''), '<span class="spacer"></span><button type="button" class="btn" data-close2>Cerrar</button>');
+  form.querySelector('[data-close2]').onclick = closeModal;
+  form.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { closeModal(); state.view = b.dataset.go; render(); window.scrollTo(0,0); });
+}
+
+/* ---------- Sueldos ---------- */
+function viewSueldos(v){
+  const ym = state.sueldoMes;
+  const pagos = state.gastos.filter(g => g.tipoDoc === 'sueldo' && (g.periodoSueldo || (g.fecha||'').slice(0,7)) === ym).sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+  const tot = k => sum(pagos.filter(g => g.tipoPagoSueldo === k));
+  const nombres = [...new Set([...TRABS().filter(t => t.activo !== false).map(t => t.nombre), ...pagos.map(g => g.trabajador)])];
+  const meses = new Set([curYM(), ym, ...state.gastos.filter(g => g.tipoDoc==='sueldo').map(g => g.periodoSueldo).filter(Boolean)]);
+  v.innerHTML = `
+  <div class="page-head"><div><h2>Sueldos</h2><div class="sub">Anticipos, remuneraciones y bonos por trabajador</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><select class="input" id="sMes" style="width:auto">${[...meses].sort().reverse().map(m => `<option value="${m}" ${m===ym?'selected':''}>${ymLabel(m).replace(/^./,c=>c.toUpperCase())}</option>`).join('')}</select>
+    <button class="btn btn-primary" data-act="pago-sueldo">${ic('plus')} Registrar pago</button></div></div>
+  <div class="kpis">
+    <div class="card kpi"><div class="l">Total pagado</div><div class="v num">${clp(sum(pagos))}</div><div class="d">${pagos.length} pago${pagos.length===1?'':'s'}</div></div>
+    <div class="card kpi"><div class="l">Anticipos</div><div class="v num">${clp(tot('anticipo'))}</div></div>
+    <div class="card kpi"><div class="l">Remuneraciones</div><div class="v num">${clp(tot('remuneracion'))}</div></div>
+    <div class="card kpi"><div class="l">Bonos y otros</div><div class="v num">${clp(sum(pagos.filter(g => !['anticipo','remuneracion'].includes(g.tipoPagoSueldo))))}</div></div>
+  </div>
+  <div class="pp-grid">
+    <div class="card" style="overflow:hidden">
+      <div class="group-h"><span>Por trabajador · ${ymLabel(ym)}</span><span class="num">${clp(sum(pagos))}</span></div>
+      ${nombres.length ? nombres.map(n => { const t = TRABS().find(x => x.nombre === n) || {}, ps = pagos.filter(g => g.trabajador === n);
+        const a = sum(ps.filter(g => g.tipoPagoSueldo==='anticipo')), r = sum(ps.filter(g => g.tipoPagoSueldo==='remuneracion')), o = sum(ps) - a - r;
+        return `<div class="row row-pp" style="cursor:default">
+          <div><div class="r-title">${esc(n)} <span class="pill ${t.jornada==='part'?'amber':'purple'}">${JORNADAS[t.jornada]||'—'}</span></div>
+            <div class="r-sub">Anticipos ${clp(a)} · Remuneración ${clp(r)}${o?' · Otros '+clp(o):''}${t.centro?' · '+esc(t.centro):''}</div></div>
+          <div class="r-state">${ps.length ? `<span class="pill green">${ps.length} pago${ps.length===1?'':'s'}</span>` : '<span class="pill gray">Sin pagos</span>'}</div>
+          <div class="r-amt num">${clp(sum(ps))}</div>
+          <div class="r-act" style="text-align:right"><button class="btn btn-sm" data-pago-trab="${esc(n)}">Pagar</button></div></div>`; }).join('')
+        : '<div class="empty">Agrega a tus trabajadores para registrar anticipos y remuneraciones.</div>'}
+      ${pagos.length ? `<div class="group-h"><span>Detalle de pagos</span><span></span></div>${pagos.map(rowHTML).join('')}` : ''}
+    </div>
+    <div class="card"><div class="card-h"><h3>Trabajadores</h3><button class="link" data-act="new-trab">＋ Agregar</button></div><div class="card-b">
+      ${TRABS().length ? TRABS().map(t => `<div class="hbar" style="cursor:pointer;border-top:1px solid var(--border)" data-edit-trab="${esc(t.nombre)}">
+        <div class="n">${esc(t.nombre)}<div class="note">${JORNADAS[t.jornada]||''}${t.centro?' · '+esc(t.centro):''}</div></div>
+        <div class="a">${t.activo===false?'<span class="pill gray">Inactivo</span>':'<span class="pill green">Activo</span>'}</div></div>`).join('') : '<div class="empty">Sin trabajadores</div>'}
+    </div></div>
+  </div>`;
+  $('#sMes').onchange = e => { state.sueldoMes = e.target.value; render(); };
+  v.querySelectorAll('[data-pago-trab]').forEach(b => b.onclick = () => { const t = TRABS().find(x => x.nombre === b.dataset.pagoTrab) || {};
+    gastoForm({ tipoDoc:'sueldo', trabajador:b.dataset.pagoTrab, centro: CENTS().includes(t.centro) ? t.centro : CENTS()[0], periodoSueldo:ym, formaPago:'transferencia' }); });
+  v.querySelectorAll('[data-edit-trab]').forEach(b => b.onclick = () => trabajadorForm(TRABS().find(x => x.nombre === b.dataset.editTrab)));
+  v.querySelector('[data-act=new-trab]').onclick = e => { e.stopPropagation(); trabajadorForm(); };
+  v.querySelector('[data-act=pago-sueldo]').onclick = e => { e.stopPropagation(); gastoForm({ tipoDoc:'sueldo', periodoSueldo:ym, formaPago:'transferencia' }); };
+}
+
+/* ---------- Compras sin boleta ---------- */
+function viewSinBoleta(v){
+  const ym = state.sbMes, all = state.gastos.filter(g => g.tipoDoc === 'sindoc');
+  const list = all.filter(g => ym === 'todos' || (g.fecha||'').startsWith(ym)).sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+  const prods = {}; list.forEach(g => (g.items||[]).forEach(i => { const k = i.producto.trim().toLowerCase(); const p = prods[k] ||= { nombre:i.producto, monto:0, veces:0, cant:{} };
+    p.monto += i.monto||0; p.veces++; if (i.cantidad) p.cant[i.unidad] = (p.cant[i.unidad]||0) + i.cantidad; }));
+  const top = Object.values(prods).sort((a,b) => b.monto - a.monto);
+  const meses = new Set([curYM(), ...all.map(g => (g.fecha||'').slice(0,7))]);
+  const fmtQ = n => Number(n.toFixed(2)).toLocaleString('es-CL');
+  v.innerHTML = `
+  <div class="page-head"><div><h2>Compras sin boleta</h2><div class="sub">Productos comprados sin boleta ni factura (feria, vendedores informales…)</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><select class="input" id="sbMes" style="width:auto"><option value="todos" ${ym==='todos'?'selected':''}>Todos los meses</option>${[...meses].sort().reverse().map(m => `<option value="${m}" ${m===ym?'selected':''}>${ymLabel(m).replace(/^./,c=>c.toUpperCase())}</option>`).join('')}</select>
+    <button class="btn btn-primary" data-act="new-sb">${ic('plus')} Registrar compra</button></div></div>
+  <div class="kpis">
+    <div class="card kpi"><div class="l">Total sin respaldo</div><div class="v num">${clp(sum(list))}</div><div class="d">${list.length} compra${list.length===1?'':'s'}</div></div>
+    <div class="card kpi"><div class="l">Productos distintos</div><div class="v num">${top.length}</div></div>
+    <div class="card kpi"><div class="l">% del gasto ${ym==='todos'?'total':'del mes'}</div><div class="v num">${(() => { const t = ym==='todos' ? sum(state.gastos) : sum(gastosMes(ym)); return t ? Math.round(sum(list)/t*100) : 0; })()}%</div></div>
+    <div class="card kpi"><div class="l">Compra promedio</div><div class="v num">${clp(list.length ? sum(list)/list.length : 0)}</div></div>
+  </div>
+  <div class="pp-grid">
+    <div class="card" style="overflow:hidden">
+      <div class="group-h"><span>Compras</span><span class="num">${clp(sum(list))}</span></div>
+      ${list.length ? list.map(g => `<button class="row" data-edit="${g.id}" style="grid-template-columns:minmax(0,1fr) auto">
+        <div><div class="r-title">${fdate(g.fecha)} · ${esc(g.proveedor||'Compra sin boleta')}</div>
+          <div class="r-sub" style="white-space:normal">${(g.items||[]).map(i => `${esc(i.producto)}${i.cantidad?` (${fmtQ(i.cantidad)} ${esc(i.unidad)})`:''} ${clp(i.monto)}`).join(' · ') || esc(g.descripcion||'')}</div>
+          <div class="note">${esc(g.centro||'')} · ${esc(g.categoria||'')} · ${PAGOS[g.formaPago]||''}</div></div>
+        <div class="r-amt num">${clp(g.total)}</div></button>`).join('') : '<div class="empty">No hay compras sin boleta en este período</div>'}
+    </div>
+    <div class="card"><div class="card-h"><h3>Productos más comprados</h3></div><div class="card-b">
+      ${top.length ? top.slice(0,15).map(p => `<div class="hbar"><div class="n">${esc(p.nombre)}<div class="note">${p.veces} vez${p.veces===1?'':'es'}${Object.entries(p.cant).map(([u,q]) => ` · ${fmtQ(q)} ${esc(u)}`).join('')}</div></div>
+        <div class="a num">${clp(p.monto)}</div><div class="track"><div class="fill" style="width:${p.monto/top[0].monto*100}%;background:var(--orange)"></div></div></div>`).join('') : '<div class="empty">Sin productos</div>'}
+    </div></div>
+  </div>`;
+  $('#sbMes').onchange = e => { state.sbMes = e.target.value; render(); };
+  v.querySelector('[data-act=new-sb]').onclick = e => { e.stopPropagation(); gastoForm({ tipoDoc:'sindoc', formaPago:'efectivo', categoria: CATS().includes('Materia prima') ? 'Materia prima' : CATS()[0] }); };
+}
+
 /* ---------- Categorías y centros ---------- */
 function viewAjustes(v){
   const uso = (campo, n) => state.gastos.filter(g => g[campo] === n).length + state.fijos.filter(f => f[campo] === n).length;
@@ -760,8 +912,8 @@ const selOpts = (opts, val, addLabel) => { const list = val && !opts.includes(va
   return list.map(o => `<option ${o===val?'selected':''}>${esc(o)}</option>`).join('') + (addLabel ? `<option value="__new">＋ ${addLabel}</option>` : ''); };
 
 /* Listas editables (se guardan en Firebase como fijos/_listas) */
-async function saveListas(categorias = CATS(), centros = CENTS()){
-  state.listas = { categorias:[...categorias], centros:[...centros] };
+async function saveListas(categorias = CATS(), centros = CENTS(), trabajadores = TRABS()){
+  state.listas = { categorias:[...categorias], centros:[...centros], trabajadores:trabajadores.map(t => ({...t})) };
   await store.set('fijos', '_listas', state.listas);
 }
 async function addToList(tipo, nombre){
@@ -800,24 +952,38 @@ function gastoForm(g = {}){
     ${fijo ? `<div class="box note">Pago de gasto fijo: <b>${esc(fijo.nombre)}</b> — ${ymLabel(g.periodo)}</div>` : ''}
     <label class="field"><span>Tipo de documento</span>${seg('tipoDoc', TIPOS, g.tipoDoc)}</label>
     <div class="grid2">
-      <label class="field"><span>Fecha del documento</span><input class="input" type="date" name="fecha" value="${g.fecha}" required></label>
-      <label class="field"><span>N° documento</span><input class="input" name="numero" inputmode="numeric" value="${esc(g.numero||'')}" placeholder="Ej: 12345"></label>
+      <label class="field"><span id="lblFecha">Fecha del documento</span><input class="input" type="date" name="fecha" value="${g.fecha}" required></label>
+      <label class="field" data-show="factura boleta otro"><span>N° documento</span><input class="input" name="numero" inputmode="numeric" value="${esc(g.numero||'')}" placeholder="Ej: 12345"></label>
     </div>
-    <div class="grid2">
-      <label class="field" style="grid-column:span 1"><span>Proveedor / comercio</span><input class="input" name="proveedor" list="provs" value="${esc(g.proveedor||'')}" placeholder="Nombre" required autocomplete="off"></label>
-      <label class="field" data-only="factura"><span>RUT proveedor</span><input class="input" name="rut" value="${esc(g.rut||'')}" placeholder="76.123.456-7"></label>
+    <div data-show="sueldo" class="box" style="display:grid;gap:12px">
+      <div class="grid2">
+        <label class="field"><span>Trabajador</span><select class="input" name="trabajador">${trabOpts(g.trabajador)}</select></label>
+        <div class="field"><span>Jornada</span><div class="input" id="jornadaTxt" style="display:flex;align-items:center;background:var(--surface-2)">—</div></div>
+      </div>
+      <label class="field"><span>Tipo de pago</span>${seg('tipoPagoSueldo', TIPO_SUELDO, g.tipoPagoSueldo || 'anticipo')}</label>
+      <label class="field"><span>Mes que corresponde</span><input class="input" type="month" name="periodoSueldo" value="${g.periodoSueldo || (g.fecha||today()).slice(0,7)}"></label>
+    </div>
+    <div class="grid2" data-show="factura boleta otro sindoc">
+      <label class="field" style="grid-column:span 1"><span id="lblProv">Proveedor / comercio</span><input class="input" name="proveedor" list="provs" value="${esc(g.tipoDoc==='sueldo'?'':(g.proveedor||''))}" placeholder="Nombre" autocomplete="off"></label>
+      <label class="field" data-show="factura"><span>RUT proveedor</span><input class="input" name="rut" value="${esc(g.rut||'')}" placeholder="76.123.456-7"></label>
     </div>
     ${provDatalist()}
+    <div data-show="sindoc" class="box" style="display:grid;gap:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:13.5px">Productos comprados</b><span class="note">sin boleta ni factura</span></div>
+      <div id="items"></div>
+      <button type="button" class="btn btn-sm" id="addItem" style="justify-self:start">${ic('plus')} Agregar producto</button>
+      <datalist id="prods">${[...new Set(state.gastos.flatMap(x => (x.items||[]).map(i => i.producto)))].sort().map(p => `<option value="${esc(p)}">`).join('')}</datalist>
+    </div>
     <div class="grid2">
       <label class="field"><span>Centro de costo</span><select class="input" name="centro">${selOpts(CENTS(), g.centro, 'Agregar centro…')}</select></label>
-      <label class="field"><span>Categoría</span><select class="input" name="categoria">${selOpts(CATS(), g.categoria, 'Agregar categoría…')}</select></label>
+      <label class="field" data-show="factura boleta otro sindoc"><span>Categoría</span><select class="input" name="categoria">${selOpts(CATS(), g.tipoDoc==='sueldo' ? CATS()[0] : g.categoria, 'Agregar categoría…')}</select></label>
     </div>
-    <label class="field"><span>Descripción (opcional)</span><input class="input" name="descripcion" value="${esc(g.descripcion||'')}" placeholder="Qué se compró"></label>
+    <label class="field"><span>Descripción / nota (opcional)</span><input class="input" name="descripcion" value="${esc(g.descripcion||'')}" placeholder="Detalle"></label>
     <div class="grid2">
-      <label class="field"><span>Monto total (con IVA)</span><input class="input num" name="total" inputmode="numeric" value="${g.total ? Math.round(g.total).toLocaleString('es-CL') : ''}" placeholder="$0" required style="font-weight:600;font-size:17px"></label>
-      <div class="field" data-only="factura"><span>Neto / IVA</span><div class="box num" id="netoIva" style="min-height:40px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px"></div></div>
+      <label class="field"><span id="lblTotal">Monto total (con IVA)</span><input class="input num" name="total" inputmode="numeric" value="${g.total ? Math.round(g.total).toLocaleString('es-CL') : ''}" placeholder="$0" required style="font-weight:600;font-size:17px"></label>
+      <div class="field" data-show="factura"><span>Neto / IVA</span><div class="box num" id="netoIva" style="min-height:40px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px"></div></div>
     </div>
-    <label data-only="factura" style="display:flex;gap:8px;align-items:center;font-size:13.5px;margin-top:-6px"><input type="checkbox" name="exenta" ${g.exenta?'checked':''}> Factura exenta de IVA</label>
+    <label data-show="factura" style="display:flex;gap:8px;align-items:center;font-size:13.5px;margin-top:-6px"><input type="checkbox" name="exenta" ${g.exenta?'checked':''}> Factura exenta de IVA</label>
     <label class="field"><span>Forma de pago</span>${seg('formaPago', PAGOS, g.formaPago)}</label>
     <div id="creditoBox" class="box" style="display:grid;gap:10px">
       <div class="grid2">
@@ -847,9 +1013,50 @@ function gastoForm(g = {}){
   form.querySelector('[data-close2]').onclick = closeModal;
   let fotoData = null;
 
+  // --- productos sin boleta
+  const itemsBox = $('#items', form);
+  const itemRow = (it = {}) => {
+    const r = document.createElement('div'); r.className = 'item-row';
+    r.innerHTML = `<input class="input" data-k="producto" list="prods" placeholder="Producto" value="${esc(it.producto||'')}" autocomplete="off">
+      <input class="input" data-k="cantidad" inputmode="decimal" placeholder="Cant." value="${it.cantidad ?? ''}">
+      <select class="input" data-k="unidad">${UNIDADES.map(u => `<option ${u===(it.unidad||'kg')?'selected':''}>${u}</option>`).join('')}</select>
+      <input class="input num" data-k="monto" inputmode="numeric" placeholder="$ total" value="${it.monto ? Number(it.monto).toLocaleString('es-CL') : ''}">
+      <button type="button" class="x" title="Quitar">${ic('trash')}</button>`;
+    r.querySelector('.x').onclick = () => { r.remove(); if (!itemsBox.children.length) itemsBox.appendChild(itemRow()); upd(); };
+    const m = r.querySelector('[data-k=monto]'); m.addEventListener('input', () => { const n = parseMonto(m.value); m.value = n ? n.toLocaleString('es-CL') : ''; });
+    return r;
+  };
+  const readItems = () => [...itemsBox.querySelectorAll('.item-row')].map(r => ({
+    producto: r.querySelector('[data-k=producto]').value.trim(), cantidad: Number(String(r.querySelector('[data-k=cantidad]').value).replace(',','.')) || 0,
+    unidad: r.querySelector('[data-k=unidad]').value, monto: parseMonto(r.querySelector('[data-k=monto]').value) })).filter(i => i.producto || i.monto);
+  (g.items?.length ? g.items : [{}]).forEach(it => itemsBox.appendChild(itemRow(it)));
+  $('#addItem', form).onclick = () => { const r = itemRow(); itemsBox.appendChild(r); r.querySelector('input').focus(); };
+
+  // --- trabajador
+  let prevTrab = form.trabajador.value;
+  form.trabajador.addEventListener('change', async () => {
+    if (form.trabajador.value !== '__new') { prevTrab = form.trabajador.value; const t = TRABS().find(x => x.nombre === prevTrab); if (t?.centro && CENTS().includes(t.centro)) form.centro.value = t.centro; upd(); return; }
+    const t = await trabajadorForm(null, true);
+    form.trabajador.innerHTML = trabOpts(t ? t.nombre : prevTrab);
+    if (t) { prevTrab = t.nombre; if (t.centro && CENTS().includes(t.centro)) form.centro.value = t.centro; }
+    upd();
+  });
+
   const upd = () => {
-    const fd = new FormData(form), tipo = fd.get('tipoDoc'), pago = fd.get('formaPago'), total = parseMonto(fd.get('total'));
-    form.querySelectorAll('[data-only=factura]').forEach(el => el.style.display = tipo === 'factura' ? '' : 'none');
+    let fd = new FormData(form), tipo = fd.get('tipoDoc'), pago = fd.get('formaPago');
+    if (tipo === 'sindoc') { const t = readItems().reduce((a,i) => a + i.monto, 0); form.total.value = t ? t.toLocaleString('es-CL') : ''; }
+    const total = parseMonto(form.total.value);
+    form.querySelectorAll('[data-show]').forEach(el => el.style.display = el.dataset.show.split(' ').includes(tipo) ? '' : 'none');
+    const credLbl = form.querySelector('input[name=formaPago][value=credito]').closest('label');
+    credLbl.style.display = (tipo === 'sueldo' || tipo === 'sindoc') ? 'none' : '';
+    if ((tipo === 'sueldo' || tipo === 'sindoc') && pago === 'credito') { form.querySelector('input[name=formaPago][value=efectivo]').checked = true; return upd(); }
+    $('#lblFecha', form).textContent = tipo === 'sueldo' ? 'Fecha de pago' : tipo === 'sindoc' ? 'Fecha de compra' : 'Fecha del documento';
+    $('#lblProv', form).textContent = tipo === 'sindoc' ? 'Dónde se compró (opcional)' : 'Proveedor / comercio';
+    $('#lblTotal', form).textContent = tipo === 'factura' ? 'Monto total (con IVA)' : tipo === 'sueldo' ? 'Monto pagado' : tipo === 'sindoc' ? 'Total (suma de productos)' : 'Monto total';
+    form.total.readOnly = tipo === 'sindoc';
+    if (tipo === 'sindoc') { const t = readItems().reduce((a,i) => a + i.monto, 0); form.total.value = t ? t.toLocaleString('es-CL') : ''; }
+    const tr = TRABS().find(t => t.nombre === form.trabajador.value);
+    $('#jornadaTxt', form).textContent = tr ? `${JORNADAS[tr.jornada]||'—'}${tr.centro ? ' · ' + tr.centro : ''}` : '—';
     $('#creditoBox', form).style.display = pago === 'credito' ? 'grid' : 'none';
     $('#pagoCredito', form).style.display = fd.get('estado') === 'pagado' ? '' : 'none';
     const neto = fd.get('exenta') ? total : Math.round(total / 1.19);
@@ -891,16 +1098,27 @@ function gastoForm(g = {}){
     e.preventDefault();
     const fd = new FormData(form), total = parseMonto(fd.get('total')), tipo = fd.get('tipoDoc'), pago = fd.get('formaPago');
     if (fd.get('categoria') === '__new' || fd.get('centro') === '__new') return toast('Elige una categoría y centro');
-    if (!fd.get('proveedor').trim()) return toast('Falta el proveedor');
+    const items = tipo === 'sindoc' ? readItems() : [];
+    if (tipo === 'sueldo' && (!fd.get('trabajador') || fd.get('trabajador') === '__new')) return toast('Elige el trabajador');
+    if (tipo === 'sindoc' && !items.length) return toast('Agrega al menos un producto');
+    if (tipo === 'sindoc' && items.some(i => !i.producto)) return toast('Falta el nombre de un producto');
+    if (tipo !== 'sueldo' && tipo !== 'sindoc' && !fd.get('proveedor').trim()) return toast('Falta el proveedor');
     if (!total) return toast('Falta el monto');
+    const trab = tipo === 'sueldo' ? TRABS().find(t => t.nombre === fd.get('trabajador')) : null;
+    if (tipo === 'sueldo' && !CATS().includes(CAT_SUELDOS)) { try { await addToList('categoria', CAT_SUELDOS); } catch {} }
     if (!fd.get('fecha')) return toast('Falta la fecha');
     if (pago === 'credito' && !fd.get('vencimiento')) return toast('Indica la fecha de vencimiento');
     const exenta = tipo === 'factura' && !!fd.get('exenta');
     const neto = tipo === 'factura' && !exenta ? Math.round(total / 1.19) : total;
     const estado = pago === 'credito' ? fd.get('estado') : 'pagado';
     const data = {
-      tipoDoc:tipo, fecha:fd.get('fecha'), numero:fd.get('numero').trim(), proveedor:fd.get('proveedor').trim(), rut: tipo==='factura' ? fd.get('rut').trim() : '',
-      centro:fd.get('centro'), categoria:fd.get('categoria'), descripcion:fd.get('descripcion').trim(),
+      tipoDoc:tipo, fecha:fd.get('fecha'), numero: (tipo==='sueldo'||tipo==='sindoc') ? '' : fd.get('numero').trim(),
+      proveedor: tipo==='sueldo' ? fd.get('trabajador') : (fd.get('proveedor').trim() || (tipo==='sindoc' ? 'Compra sin boleta' : '')),
+      rut: tipo==='factura' ? fd.get('rut').trim() : '',
+      centro:fd.get('centro'), categoria: tipo==='sueldo' ? CAT_SUELDOS : fd.get('categoria'), descripcion:fd.get('descripcion').trim(),
+      trabajador: tipo==='sueldo' ? fd.get('trabajador') : '', jornada: trab?.jornada || '',
+      tipoPagoSueldo: tipo==='sueldo' ? fd.get('tipoPagoSueldo') : '', periodoSueldo: tipo==='sueldo' ? (fd.get('periodoSueldo') || fd.get('fecha').slice(0,7)) : '',
+      items,
       total, neto, iva: total - neto, exenta, formaPago:pago,
       vencimiento: pago === 'credito' ? fd.get('vencimiento') : '', estado,
       fechaPago: pago === 'credito' && estado === 'pagado' ? (fd.get('fechaPago') || today()) : '',
@@ -983,9 +1201,9 @@ function compressImage(file, max = 1400, q = 0.6){
 function exportCSV(){
   const list = filteredGastos();
   const cols = [['fecha','Fecha'],['tipoDoc','Tipo'],['numero','N°'],['proveedor','Proveedor'],['rut','RUT'],['centro','Centro de costo'],['categoria','Categoría'],['descripcion','Descripción'],
-    ['neto','Neto'],['iva','IVA'],['total','Total'],['formaPago','Forma de pago'],['vencimiento','Vencimiento'],['estado','Estado'],['fechaPago','Fecha pago'],['medioPago','Pagada con'],['creadoPor','Registrado por']];
+    ['neto','Neto'],['iva','IVA'],['total','Total'],['formaPago','Forma de pago'],['vencimiento','Vencimiento'],['estado','Estado'],['fechaPago','Fecha pago'],['medioPago','Pagada con'],['trabajador','Trabajador'],['jornada','Jornada'],['tipoPagoSueldo','Tipo pago sueldo'],['periodoSueldo','Mes sueldo'],['productos','Productos'],['creadoPor','Registrado por']];
   const q = v => { v = String(v ?? ''); return /[;"\n]/.test(v) ? `"${v.replace(/"/g,'""')}"` : v; };
-  const csv = '﻿' + [cols.map(c => c[1]).join(';'), ...list.map(g => cols.map(([k]) => q(g[k])).join(';'))].join('\n');
+  const csv = '﻿' + [cols.map(c => c[1]).join(';'), ...list.map(g => cols.map(([k]) => q(k==='productos' ? (g.items||[]).map(i => `${i.producto} ${i.cantidad||''}${i.unidad||''} $${i.monto}`).join(' | ') : k==='tipoDoc' ? TIPOS[g.tipoDoc]||g.tipoDoc : g[k])).join(';'))].join('\n');
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type:'text/csv;charset=utf-8' }));
   a.download = `gastos_renni_${state.f.mes}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
@@ -1008,6 +1226,7 @@ document.addEventListener('click', e => {
   if (d.act === 'new') gastoForm();
   if (d.act === 'new-fijo') fijoForm();
   if (d.act === 'csv') exportCSV();
+  if (d.act === 'more') moreMenu();
   if (d.act === 'logout' && confirm(DEMO ? '¿Salir del modo demo? Se borrarán los datos de ejemplo.' : '¿Cerrar sesión?')) store.logout();
 });
 
@@ -1022,7 +1241,7 @@ document.addEventListener('click', e => {
     const onErr = err => { state.error = err.code === 'permission-denied'
       ? `El usuario ${user.email} no está autorizado. Pide al administrador que agregue este correo en las reglas de Firestore.` : (err.message||String(err)); render(); };
     store.watch('gastos', d => { state.gastos = d; state.ready.gastos = true; render(); }, onErr);
-    store.watch('fijos', d => { const l = d.find(x => x.id === '_listas'); state.listas = l ? { categorias:l.categorias||[], centros:l.centros||[] } : null;
+    store.watch('fijos', d => { const l = d.find(x => x.id === '_listas'); state.listas = l ? { categorias:l.categorias||[], centros:l.centros||[], trabajadores:l.trabajadores||[] } : null;
       state.fijos = d.filter(x => !String(x.id).startsWith('_')); state.ready.fijos = true; render(); }, onErr);
   });
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
