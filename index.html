@@ -1,0 +1,945 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>RENNI Gastos</title>
+<meta name="theme-color" content="#7E1862">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="RENNI Gastos">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --brand:#7E1862; --brand-2:#9a2a7a; --orange:#E9803A; --orange-soft:#fdf1e8;
+  --bg:#f6f5f7; --surface:#fff; --surface-2:#faf9fb; --text:#1d1a20; --muted:#6c6672; --faint:#9a94a0;
+  --border:#e8e4ec; --border-2:#d9d3df;
+  --red:#d14343; --red-soft:#fdeeee; --amber:#c47d0e; --amber-soft:#fdf5e6; --green:#2c9466; --green-soft:#e9f6ef; --blue:#3a6fd8; --blue-soft:#ecf2fd;
+  --radius:12px; --shadow:0 1px 2px rgba(30,20,40,.05),0 4px 16px rgba(30,20,40,.05);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:15px;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.hidden{display:none!important}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- Login ---------- */
+.login{min-height:100vh;display:grid;place-items:center;padding:24px;background:linear-gradient(160deg,#7E1862 0%,#5c1048 100%)}
+.login-card{background:var(--surface);border-radius:20px;padding:32px 28px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center}
+.login-card img{width:96px;height:96px;margin-bottom:10px}
+.login-card h1{font-size:20px;margin:4px 0 2px}
+.login-card p{color:var(--muted);margin:0 0 22px;font-size:14px}
+.login-card form{text-align:left;display:grid;gap:12px}
+
+/* ---------- Layout ---------- */
+.app{display:grid;grid-template-columns:236px 1fr;min-height:100vh}
+.side{position:sticky;top:0;height:100vh;background:var(--surface);border-right:1px solid var(--border);padding:18px 12px;display:flex;flex-direction:column;gap:2px}
+.brand{display:flex;align-items:center;gap:10px;padding:2px 8px 18px}
+.brand img{width:40px;height:40px}
+.brand b{display:block;font-size:15px}
+.brand span{font-size:12px;color:var(--muted)}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;border:0;background:none;text-align:left;color:var(--muted);font-weight:500;width:100%}
+.nav-item:hover{background:var(--surface-2);color:var(--text)}
+.nav-item.active{background:#f5ecf2;color:var(--brand)}
+.nav-item svg{width:18px;height:18px;flex:none}
+.badge{margin-left:auto;background:var(--red);color:#fff;font-size:11px;font-weight:600;border-radius:99px;padding:1px 7px;min-width:20px;text-align:center}
+.badge.amber{background:var(--amber)}
+.side .btn-primary{margin:10px 0 14px}
+.side-foot{margin-top:auto;border-top:1px solid var(--border);padding-top:12px;font-size:13px;color:var(--muted)}
+.side-foot .who{padding:0 10px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.main{padding:26px 32px 48px;width:100%;max-width:1240px}
+.topbar{display:none}
+.bottomnav{display:none}
+.demo-bar{background:var(--orange-soft);color:#8a4511;border:1px solid #f5d3b8;padding:8px 12px;border-radius:10px;font-size:13px;margin-bottom:16px}
+
+/* ---------- Common ---------- */
+.page-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.page-head h2{font-size:22px;margin:0;letter-spacing:-.01em}
+.page-head .sub{color:var(--muted);font-size:13px;margin-top:2px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+.card-h{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px;gap:8px}
+.card-h h3{font-size:14px;margin:0;font-weight:600}
+.card-h .link{font-size:13px;color:var(--brand);background:none;border:0;font-weight:500;padding:0}
+.card-b{padding:8px 16px 16px}
+.btn{border:1px solid var(--border-2);background:var(--surface);border-radius:9px;padding:8px 14px;font-weight:500;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn svg{width:16px;height:16px}
+.btn-primary{background:var(--brand);border-color:var(--brand);color:#fff;justify-content:center}
+.btn-primary:hover{background:var(--brand-2)}
+.btn-orange{background:var(--orange);border-color:var(--orange);color:#fff}
+.btn-orange:hover{background:#d8702b}
+.btn-sm{padding:5px 10px;font-size:13px;border-radius:8px}
+.btn-danger{color:var(--red);border-color:#f0caca}
+.btn-ghost{border-color:transparent;background:none}
+.empty{padding:28px 12px;text-align:center;color:var(--faint);font-size:14px}
+
+.field{display:grid;gap:5px}
+.field>span{font-size:12.5px;font-weight:500;color:var(--muted)}
+.input,select.input,textarea.input{width:100%;border:1px solid var(--border-2);background:var(--surface);border-radius:9px;padding:9px 11px;outline:none;min-height:40px}
+.input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(126,24,98,.12)}
+textarea.input{resize:vertical;min-height:60px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.seg{display:flex;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:3px;gap:3px;flex-wrap:wrap}
+.seg label{flex:1;min-width:max-content}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg span{display:block;text-align:center;padding:7px 10px;border-radius:7px;font-size:13.5px;font-weight:500;color:var(--muted);cursor:pointer}
+.seg input:checked+span{background:var(--surface);color:var(--brand);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--border-2);background:var(--surface);border-radius:99px;padding:4px 11px;font-size:13px}
+.chip:hover{border-color:var(--brand);color:var(--brand)}
+.note{font-size:12.5px;color:var(--muted)}
+.box{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;border-radius:99px;padding:2px 9px;white-space:nowrap}
+.pill.green{background:var(--green-soft);color:var(--green)}
+.pill.red{background:var(--red-soft);color:var(--red)}
+.pill.amber{background:var(--amber-soft);color:var(--amber)}
+.pill.blue{background:var(--blue-soft);color:var(--blue)}
+.pill.gray{background:#f0eef2;color:var(--muted)}
+.pill.purple{background:#f5ecf2;color:var(--brand)}
+
+/* ---------- Dashboard ---------- */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
+.kpi{padding:14px 16px}
+.kpi .l{font-size:12.5px;color:var(--muted);font-weight:500}
+.kpi .v{font-size:24px;font-weight:700;margin-top:6px;letter-spacing:-.02em}
+.kpi .d{font-size:12.5px;margin-top:4px;color:var(--muted)}
+.kpi .d .up{color:var(--red)} .kpi .d .down{color:var(--green)}
+.kpi.kpi-red .v{color:var(--red)}
+.dash-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:14px}
+.dash-grid .full{grid-column:1/-1}
+.alerts{display:grid;gap:8px;margin-bottom:14px}
+.alert{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:11px;border:1px solid}
+.alert.red{background:var(--red-soft);border-color:#f3cccc}
+.alert.amber{background:var(--amber-soft);border-color:#f2deb5}
+.alert .ico{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;flex:none;color:#fff}
+.alert.red .ico{background:var(--red)} .alert.amber .ico{background:var(--amber)}
+.alert .ico svg{width:16px;height:16px}
+.alert .t{flex:1;min-width:0}
+.alert .t b{display:block;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alert .t small{font-size:12.5px;color:var(--muted)}
+.alert .amt{font-weight:600;white-space:nowrap}
+
+.bars{display:flex;align-items:flex-end;gap:10px;height:190px;padding:18px 4px 0}
+.bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end;cursor:pointer;border:0;background:none;padding:0}
+.bar .col{width:100%;max-width:54px;border-radius:7px 7px 3px 3px;background:#e9dbe5;transition:background .15s;min-height:3px}
+.bar:hover .col{background:#d8bccf}
+.bar.sel .col{background:var(--brand)}
+.bar .val{font-size:11.5px;color:var(--muted);font-weight:500}
+.bar .lab{font-size:12px;color:var(--muted);text-transform:capitalize}
+.bar.sel .lab{color:var(--text);font-weight:600}
+.hbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding:7px 0}
+.hbar .n{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hbar .a{font-size:13.5px;font-weight:600;text-align:right}
+.hbar .track{grid-column:1/-1;height:7px;background:#f0edf2;border-radius:99px;overflow:hidden}
+.hbar .fill{height:100%;border-radius:99px;background:var(--brand)}
+.hbar .p{font-weight:400;color:var(--faint);font-size:12px;margin-left:6px}
+.pays{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.pay{border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.pay .l{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.pay .l i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.pay .v{font-weight:600;margin-top:4px}
+
+/* ---------- Lists ---------- */
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.filters .input{width:auto;min-width:140px;min-height:36px;padding:6px 10px;font-size:14px}
+.filters .search{flex:1;min-width:180px}
+.list-sum{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);font-size:13.5px;color:var(--muted);gap:10px;flex-wrap:wrap}
+.list-sum b{color:var(--text);font-size:16px}
+.row{display:grid;grid-template-columns:minmax(0,1fr) 84px 150px 120px;gap:12px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);cursor:pointer;width:100%;background:none;border-left:0;border-right:0;border-top:0;text-align:left}
+.row:last-child{border-bottom:0}
+.row:hover{background:var(--surface-2)}
+.r-title{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+.r-title svg{width:14px;height:14px;color:var(--faint);flex:none}
+.r-sub{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.r-date{font-size:13px;color:var(--muted)}
+.r-amt{text-align:right;font-weight:600}
+.row-pp{grid-template-columns:minmax(0,1fr) 130px 120px 92px}
+.group-h{padding:12px 16px 8px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);display:flex;justify-content:space-between;background:var(--surface-2);border-bottom:1px solid var(--border)}
+.group-h.red{color:var(--red)} .group-h.amber{color:var(--amber)}
+.pp-grid{display:grid;grid-template-columns:1fr 320px;gap:14px;align-items:start}
+.fijo{display:grid;grid-template-columns:minmax(0,1fr) 120px 160px auto;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)}
+.fijo:last-child{border-bottom:0}
+
+/* ---------- Modal ---------- */
+.modal-bg{position:fixed;inset:0;background:rgba(25,15,30,.45);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50;animation:fade .15s}
+.modal{background:var(--surface);border-radius:16px;width:100%;max-width:560px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 70px rgba(0,0,0,.3);animation:pop .18s}
+.modal-h{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border)}
+.modal-h h3{margin:0;font-size:17px}
+.modal-b{padding:16px 20px;overflow-y:auto;display:grid;gap:14px}
+.modal-f{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;padding-bottom:max(12px,env(safe-area-inset-bottom))}
+.modal-f .spacer{flex:1}
+.x{border:0;background:none;width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--muted)}
+.x:hover{background:var(--surface-2)}
+.photo-prev{max-width:100%;max-height:260px;border-radius:10px;border:1px solid var(--border);display:block}
+@keyframes fade{from{opacity:0}} @keyframes pop{from{transform:translateY(12px);opacity:0}}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#231b28;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:60;box-shadow:0 8px 24px rgba(0,0,0,.25);animation:pop .2s}
+.loading{min-height:100vh;display:grid;place-items:center;color:var(--muted)}
+
+/* ---------- Responsive ---------- */
+@media (max-width:1100px){.kpis{grid-template-columns:repeat(2,1fr)}.dash-grid,.pp-grid{grid-template-columns:1fr}}
+@media (max-width:899px){
+  .app{grid-template-columns:1fr}
+  .side{display:none}
+  .topbar{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:10px 16px;padding-top:max(10px,env(safe-area-inset-top))}
+  .topbar img{width:34px;height:34px}
+  .topbar b{font-size:16px;flex:1}
+  .main{padding:16px 16px 110px}
+  .bottomnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--border);padding:6px 4px max(6px,env(safe-area-inset-bottom))}
+  .bn{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--faint);font-weight:500;position:relative;padding:4px 0}
+  .bn svg{width:22px;height:22px}
+  .bn.active{color:var(--brand)}
+  .bn .badge{position:absolute;top:0;left:calc(50% + 6px);margin:0;font-size:10px;padding:0 5px;min-width:16px}
+  .bn-add{display:grid;place-items:center}
+  .bn-add span{width:50px;height:50px;border-radius:16px;background:var(--orange);color:#fff;display:grid;place-items:center;box-shadow:0 6px 16px rgba(233,128,58,.45);margin-top:-18px}
+  .bn-add svg{width:26px;height:26px}
+  .page-head h2{font-size:20px}
+  .page-head .btn-desk{display:none}
+  .kpi .v{font-size:20px}
+  .pays{grid-template-columns:repeat(2,1fr)}
+  .row,.row-pp{grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:12px 14px}
+  .row .r-date{display:none}
+  .row .r-state{grid-column:1;grid-row:2}
+  .row .r-amt{grid-column:2;grid-row:1}
+  .row-pp .r-act{grid-column:2;grid-row:2;justify-self:end}
+  .fijo{grid-template-columns:minmax(0,1fr) auto;gap:6px 10px}
+  .fijo .f-amt{text-align:right}
+  .fijo .r-title{white-space:normal}
+  .fijo .r-sub{white-space:normal}
+  .fijo .f-state{grid-column:1}
+  .fijo .f-act{justify-self:end}
+  .filters .input{flex:1 1 45%;min-width:0}
+  .modal-bg{align-items:flex-end;padding:0}
+  .modal{max-width:none;border-radius:18px 18px 0 0;max-height:94vh}
+  .alert{flex-wrap:wrap}
+  .alert .t{flex:1 1 calc(100% - 42px)}
+  .alert .amt{margin-left:42px}
+  .alert .btn{margin-left:auto}
+  .toast{bottom:96px}
+}
+@media (max-width:420px){.grid2{grid-template-columns:1fr}.kpis{gap:10px}.kpi{padding:12px}}
+</style>
+</head>
+<body>
+<div id="root"><div class="loading">Cargando…</div></div>
+
+<script type="module">
+/* ================================================================
+   1) CONFIGURACIÓN — pega aquí la configuración de tu proyecto Firebase
+      (Consola Firebase → Configuración del proyecto → Tus apps → SDK).
+      Mientras diga "TU_API_KEY", la app funciona en MODO DEMO
+      con datos de ejemplo guardados solo en este navegador.
+   ================================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyAsRQ3k_PYxYEfsapGx9XA2KylWdlkAx78",
+  authDomain: "renni-gastos-48711.firebaseapp.com",
+  projectId: "renni-gastos-48711",
+  storageBucket: "renni-gastos-48711.firebasestorage.app",
+  messagingSenderId: "265069610837",
+  appId: "1:265069610837:web:cf655b47f6271b3efa51dc"
+};
+
+/* Listas editables */
+const CENTROS = ['Fábrica Helados','Fábrica Pasteles','Local Antonio Varas','Local La Compañía','Oficina'];
+const CATEGORIAS = ['Materia prima','Insumos y envases','Arriendo','Luz','Agua','Gas','Internet y telefonía','Mantención y reparaciones','Transporte y combustible','Limpieza y aseo','Marketing','Servicios profesionales','Impuestos y patentes','Otros'];
+const TIPOS = {factura:'Factura', boleta:'Boleta', otro:'Otro'};
+const PAGOS = {transferencia:'Transferencia', efectivo:'Efectivo', tarjeta:'Tarjeta', credito:'Crédito'};
+const MEDIOS_PAGO_CREDITO = {transferencia:'Transferencia', efectivo:'Efectivo', cheque:'Cheque', tarjeta:'Tarjeta'};
+const PAGO_COLOR = {transferencia:'#3a6fd8', efectivo:'#2c9466', tarjeta:'#9a94a0', credito:'#E9803A'};
+const AVISO_FACTURAS_DIAS = 7;   // avisar facturas a crédito que vencen en ≤ N días
+
+const DEMO = firebaseConfig.apiKey.startsWith('TU_');
+
+/* ================================================================
+   2) UTILIDADES
+   ================================================================ */
+const $ = (s, el=document) => el.querySelector(s);
+const pad = n => String(n).padStart(2,'0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const today = () => ymd(new Date());
+const parseD = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
+const diffDays = (a,b) => Math.round((parseD(a) - parseD(b)) / 864e5);
+const addDays = (s,n) => { const d = parseD(s); d.setDate(d.getDate()+n); return ymd(d); };
+const curYM = () => today().slice(0,7);
+const shiftYM = (ym,n) => { const [y,m] = ym.split('-').map(Number); const d = new Date(y, m-1+n, 1); return `${d.getFullYear()}-${pad(d.getMonth()+1)}`; };
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const MES3 = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const ymLabel = ym => { const [y,m] = ym.split('-').map(Number); return `${MESES[m-1]} ${y}`; };
+const fdate = s => { if(!s) return '—'; const [y,m,d] = s.split('-').map(Number); return `${pad(d)} ${MES3[m-1]}${y!==new Date().getFullYear()?' '+y:''}`; };
+const clp = n => '$' + Math.round(n||0).toLocaleString('es-CL');
+const short = v => v >= 1e6 ? '$' + (v/1e6).toFixed(1).replace('.',',') + 'M' : '$' + Math.round(v/1000) + 'k';
+const sum = arr => arr.reduce((a,g) => a + (Number(g.total)||0), 0);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const relDays = d => d === 0 ? 'vence hoy' : d === 1 ? 'vence mañana' : d > 0 ? `vence en ${d} días` : d === -1 ? 'venció ayer' : `venció hace ${-d} días`;
+const parseMonto = v => Number(String(v||'').replace(/[^\d]/g,'')) || 0;
+
+const I = {
+  home:'<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  list:'<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  repeat:'<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  out:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
+  alert:'<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
+  bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>',
+  dl:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+  cam:'<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',
+  clip:'<path d="m21.4 11-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/>',
+};
+const ic = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${I[k]}</svg>`;
+
+/* ================================================================
+   3) CAPA DE DATOS (Firebase o demo local)
+   ================================================================ */
+const state = { user:null, gastos:[], fijos:[], view:'dashboard', dashMes:curYM(),
+  f:{ mes:curYM(), centro:'', cat:'', tipo:'', pago:'', q:'' }, ready:{gastos:false,fijos:false}, error:null };
+
+let store;
+
+async function firebaseStore(){
+  const V = '10.12.2', base = `https://www.gstatic.com/firebasejs/${V}/`;
+  const [{initializeApp}, A, F] = await Promise.all([
+    import(base+'firebase-app.js'), import(base+'firebase-auth.js'), import(base+'firebase-firestore.js')]);
+  const app = initializeApp(firebaseConfig);
+  const auth = A.getAuth(app);
+  let db;
+  try { db = F.initializeFirestore(app, { localCache: F.persistentLocalCache({ tabManager: F.persistentMultipleTabManager() }) }); }
+  catch { db = F.getFirestore(app); }
+  const unsubs = [];
+  return {
+    onAuth: cb => A.onAuthStateChanged(auth, u => cb(u ? { email:u.email } : null)),
+    login: (e,p) => A.signInWithEmailAndPassword(auth, e, p),
+    logout: () => { unsubs.splice(0).forEach(u => u()); return A.signOut(auth); },
+    reset: e => A.sendPasswordResetEmail(auth, e),
+    watch(col, cb, onErr){ unsubs.push(F.onSnapshot(F.collection(db, col), s => cb(s.docs.map(d => ({ id:d.id, ...d.data() }))), onErr)); },
+    add: async (col, data) => (await F.addDoc(F.collection(db, col), data)).id,
+    set: (col, id, data) => F.setDoc(F.doc(db, col, id), data),
+    update: (col, id, data) => F.updateDoc(F.doc(db, col, id), data),
+    remove: (col, id) => F.deleteDoc(F.doc(db, col, id)),
+    get: async (col, id) => { const s = await F.getDoc(F.doc(db, col, id)); return s.exists() ? s.data() : null; },
+  };
+}
+
+function demoStore(){
+  const KEY = 'renni_gastos_demo_v1';
+  let db = null;
+  try { db = JSON.parse(localStorage.getItem(KEY)); } catch {}
+  if (!db) db = seedDemo();
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch {} };
+  const watchers = {};
+  const emit = col => (watchers[col]||[]).forEach(cb => cb(Object.entries(db[col]||{}).map(([id,v]) => ({ id, ...v }))));
+  const uid = () => Math.random().toString(36).slice(2,11);
+  save();
+  return {
+    onAuth: cb => cb({ email:'demo@renni.cl' }),
+    login: async () => {}, logout: async () => { try{localStorage.removeItem(KEY);}catch{} location.reload(); }, reset: async () => {},
+    watch(col, cb){ (watchers[col] ||= []).push(cb); setTimeout(() => emit(col)); },
+    async add(col, data){ const id = uid(); (db[col] ||= {})[id] = data; save(); emit(col); return id; },
+    async set(col, id, data){ (db[col] ||= {})[id] = data; save(); emit(col); },
+    async update(col, id, data){ Object.assign(db[col][id], data); save(); emit(col); },
+    async remove(col, id){ delete db[col][id]; save(); emit(col); },
+    async get(col, id){ return (db[col]||{})[id] || null; },
+  };
+}
+
+function seedDemo(){
+  const t = today(), ym = curYM(), db = { gastos:{}, fijos:{}, fotos:{} };
+  let n = 0; const id = () => 'd' + (++n);
+  const fijos = [
+    ['Arriendo Local Antonio Varas','Arriendo','Local Antonio Varas','Inmobiliaria Centro Rancagua',1200000,5],
+    ['Arriendo Local La Compañía','Arriendo','Local La Compañía','Juan Pérez (arrendador)',950000,5],
+    ['Arriendo Fábrica','Arriendo','Fábrica Helados','Bodegas Industriales Machalí',1500000,10],
+    ['Luz Fábrica','Luz','Fábrica Helados','CGE',420000,20],
+    ['Internet y teléfono','Internet y telefonía','Oficina','Entel',65000,15],
+  ];
+  const fids = fijos.map(([nombre,categoria,centro,proveedor,monto,dia]) => {
+    const fid = id(); db.fijos[fid] = { nombre, categoria, centro, proveedor, monto, dia, avisarDias:5, tipoDoc:'factura', activo:true, desde:shiftYM(ym,-6) }; return fid; });
+  const add = g => { const neto = g.tipoDoc==='factura' ? Math.round(g.total/1.19) : g.total;
+    db.gastos[id()] = { numero:'', rut:'', descripcion:'', neto, iva:g.tipoDoc==='factura'?g.total-neto:0, estado:'pagado', creadoPor:'demo@renni.cl', creadoEn:new Date().toISOString(), ...g }; };
+  const provs = [['Lácteos del Sur SpA','76.123.456-7','Materia prima','Fábrica Helados'],['Frutícola Rancagua Ltda','77.234.567-8','Materia prima','Fábrica Helados'],
+    ['Envases Plásticos Chile','76.345.678-9','Insumos y envases','Fábrica Helados'],['Comercial Azúcar Centro','78.456.789-0','Materia prima','Fábrica Pasteles'],
+    ['Harinas y Chocolates SpA','76.567.890-1','Materia prima','Fábrica Pasteles'],['Ferretería O\'Higgins','79.678.901-2','Mantención y reparaciones','Fábrica Helados']];
+  let seed = 7; const rnd = () => (seed = (seed*9301+49297) % 233280) / 233280;
+  for (let k = 5; k >= 0; k--) {
+    const m = shiftYM(ym,-k);
+    // gastos fijos pagados
+    fids.forEach(fid => { const f = db.fijos[fid]; const due = `${m}-${pad(f.dia)}`;
+      if (k === 0 && (f.dia > 5 || f.centro === 'Local La Compañía')) return;
+      add({ tipoDoc:'factura', proveedor:f.proveedor, fecha:due, centro:f.centro, categoria:f.categoria, total:f.monto + (f.categoria==='Luz'?Math.round(rnd()*80000):0), formaPago:'transferencia', fijoId:fid, periodo:m, descripcion:f.nombre, numero:String(1000+n) }); });
+    const maxDay = k === 0 ? Number(t.slice(8)) : 28;
+    for (let j = 0; j < 9; j++) {
+      const p = provs[Math.floor(rnd()*provs.length)], day = 1 + Math.floor(rnd()*maxDay), fecha = `${m}-${pad(day)}`;
+      const cred = rnd() < .5, total = Math.round((150000 + rnd()*900000)/100)*100;
+      const venc = addDays(fecha, 30), pagado = !cred || diffDays(venc, t) < -6 || (k >= 2);
+      add({ tipoDoc:'factura', numero:String(20000+Math.floor(rnd()*9000)), proveedor:p[0], rut:p[1], fecha, centro:p[3], categoria:p[2], total,
+        formaPago: cred ? 'credito' : (rnd()<.7?'transferencia':'efectivo'), vencimiento: cred ? venc : '', estado: pagado ? 'pagado' : 'pendiente',
+        fechaPago: cred && pagado ? venc : '', medioPago: cred && pagado ? 'transferencia' : '' });
+    }
+    for (let j = 0; j < 6; j++) {
+      const day = 1 + Math.floor(rnd()*maxDay);
+      const opts = [['Lider','Limpieza y aseo','Local Antonio Varas'],['Copec','Transporte y combustible','Fábrica Helados'],['Jumbo','Insumos y envases','Local La Compañía'],['Librería Rancagua','Otros','Oficina']];
+      const o = opts[Math.floor(rnd()*opts.length)];
+      add({ tipoDoc:'boleta', proveedor:o[0], fecha:`${m}-${pad(day)}`, centro:o[2], categoria:o[1], total:Math.round((8000+rnd()*90000)/10)*10, formaPago: rnd()<.6?'efectivo':'tarjeta' });
+    }
+  }
+  return db;
+}
+
+/* ================================================================
+   4) LÓGICA DE NEGOCIO
+   ================================================================ */
+const gastosMes = ym => state.gastos.filter(g => (g.fecha||'').startsWith(ym));
+const pendientes = () => state.gastos.filter(g => g.formaPago === 'credito' && g.estado !== 'pagado')
+  .sort((a,b) => (a.vencimiento||'9').localeCompare(b.vencimiento||'9'));
+const fijoPagado = (f, ym) => state.gastos.find(g => g.fijoId === f.id && g.periodo === ym);
+const fijoDue = (f, ym) => { const [y,m] = ym.split('-').map(Number); const last = new Date(y, m, 0).getDate(); return `${ym}-${pad(Math.min(Number(f.dia)||1, last))}`; };
+
+/* Estado de cada gasto fijo para los meses relevantes (mes anterior impago, mes actual, próximo si está dentro del aviso) */
+function fijosPendientes(){
+  const t = today(), ym = curYM(), out = [];
+  state.fijos.filter(f => f.activo !== false).forEach(f => {
+    [shiftYM(ym,-1), ym, shiftYM(ym,1)].forEach(m => {
+      if (f.desde && m < f.desde) return;
+      if (fijoPagado(f, m)) return;
+      const due = fijoDue(f, m), d = diffDays(due, t), aviso = Number(f.avisarDias ?? 5);
+      if (m !== ym && d > aviso) return;
+      if (m < ym && d >= 0) return;
+      out.push({ f, ym:m, due, d, nivel: d < 0 ? 'red' : d <= aviso ? 'amber' : 'ok' });
+    });
+  });
+  return out.sort((a,b) => a.due.localeCompare(b.due));
+}
+
+function alertas(){
+  const t = today();
+  const fac = pendientes().filter(g => g.vencimiento && diffDays(g.vencimiento, t) <= AVISO_FACTURAS_DIAS)
+    .map(g => ({ tipo:'factura', g, d:diffDays(g.vencimiento, t), due:g.vencimiento }));
+  const fij = fijosPendientes().filter(x => x.nivel !== 'ok').map(x => ({ tipo:'fijo', ...x }));
+  return [...fij, ...fac].map(a => ({ ...a, nivel: a.d < 0 ? 'red' : 'amber' })).sort((a,b) => a.due.localeCompare(b.due));
+}
+
+/* ================================================================
+   5) VISTAS
+   ================================================================ */
+const root = $('#root');
+
+function renderLogin(msg=''){
+  root.innerHTML = `
+  <div class="login"><div class="login-card">
+    <img src="logo.png" alt="RENNI">
+    <h1>Gastos y Facturas</h1>
+    <p>Control de gastos RENNI Heladería</p>
+    <form id="loginForm">
+      <label class="field"><span>Correo</span><input class="input" name="email" type="email" autocomplete="username" required></label>
+      <label class="field"><span>Contraseña</span><input class="input" name="pass" type="password" autocomplete="current-password" required></label>
+      ${msg ? `<div class="pill red" style="white-space:normal;padding:6px 10px">${esc(msg)}</div>` : ''}
+      <button class="btn btn-primary" style="padding:11px">Entrar</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="forgot" style="justify-self:center;color:var(--muted)">Olvidé mi contraseña</button>
+    </form>
+  </div></div>`;
+  $('#loginForm').onsubmit = async e => {
+    e.preventDefault(); const fd = new FormData(e.target);
+    try { await store.login(fd.get('email').trim(), fd.get('pass')); }
+    catch (err) { renderLogin(/invalid|wrong|not-found|credential/.test(err.code||'') ? 'Correo o contraseña incorrectos.' : 'No se pudo iniciar sesión: ' + (err.code||err.message)); }
+  };
+  $('#forgot').onclick = async () => {
+    const email = $('[name=email]').value.trim(); if (!email) return toast('Escribe tu correo primero');
+    try { await store.reset(email); toast('Te enviamos un correo para restablecer la contraseña'); } catch { toast('No se pudo enviar el correo'); }
+  };
+}
+
+const NAV = [
+  ['dashboard','Resumen','home'], ['gastos','Gastos','list'], ['porpagar','Por pagar','clock'], ['fijos','Gastos fijos','repeat'] ];
+
+function renderShell(){
+  root.innerHTML = `
+  <div class="app">
+    <aside class="side">
+      <div class="brand"><img src="logo.png" alt=""><div><b>RENNI Gastos</b><span>Facturas y pagos</span></div></div>
+      <button class="btn btn-orange btn-primary" data-act="new">${ic('plus')} Nuevo gasto</button>
+      ${NAV.map(([k,l,i]) => `<button class="nav-item" data-nav="${k}">${ic(i)} ${l}<span class="badge hidden" data-badge="${k}"></span></button>`).join('')}
+      <div class="side-foot"><div class="who">${esc(state.user.email)}</div>
+        <button class="nav-item" data-act="logout">${ic('out')} Cerrar sesión</button></div>
+    </aside>
+    <div>
+      <header class="topbar"><img src="logo.png" alt=""><b id="topTitle">Resumen</b>
+        <button class="x" data-act="logout" title="Cerrar sesión">${ic('out')}</button></header>
+      <main class="main">${DEMO ? `<div class="demo-bar"><b>Modo demo:</b> datos de ejemplo guardados solo en este navegador. Configura Firebase (ver LEEME) para usarla de verdad en todos los dispositivos.</div>` : ''}<div id="view"></div></main>
+    </div>
+    <nav class="bottomnav">
+      <button class="bn" data-nav="dashboard">${ic('home')}Resumen</button>
+      <button class="bn" data-nav="gastos">${ic('list')}Gastos</button>
+      <button class="bn bn-add" data-act="new" aria-label="Nuevo gasto"><span>${ic('plus')}</span></button>
+      <button class="bn" data-nav="porpagar">${ic('clock')}Por pagar<span class="badge hidden" data-badge="porpagar"></span></button>
+      <button class="bn" data-nav="fijos">${ic('repeat')}Fijos<span class="badge hidden" data-badge="fijos"></span></button>
+    </nav>
+  </div>`;
+}
+
+function render(){
+  if (!$('#view')) return;
+  document.querySelectorAll('[data-nav]').forEach(b => b.classList.toggle('active', b.dataset.nav === state.view));
+  $('#topTitle').textContent = NAV.find(n => n[0] === state.view)[1];
+  // badges
+  const al = alertas();
+  const nFac = al.filter(a => a.tipo === 'factura').length, nFij = al.filter(a => a.tipo === 'fijo').length;
+  const redFac = al.some(a => a.tipo==='factura' && a.nivel==='red'), redFij = al.some(a => a.tipo==='fijo' && a.nivel==='red');
+  document.querySelectorAll('[data-badge]').forEach(b => {
+    const k = b.dataset.badge, n = k === 'porpagar' ? nFac : k === 'fijos' ? nFij : 0;
+    b.textContent = n; b.classList.toggle('hidden', !n); b.classList.toggle('amber', k==='porpagar' ? !redFac : !redFij);
+  });
+  const v = $('#view');
+  if (state.error) { v.innerHTML = `<div class="card card-b" style="padding:24px"><h3>No tienes acceso</h3><p class="note">${esc(state.error)}</p></div>`; return; }
+  if (!state.ready.gastos || !state.ready.fijos) { v.innerHTML = '<div class="empty">Cargando datos…</div>'; return; }
+  ({ dashboard:viewDashboard, gastos:viewGastos, porpagar:viewPorPagar, fijos:viewFijos })[state.view](v);
+}
+
+/* ---------- Dashboard ---------- */
+function viewDashboard(v){
+  const ym = state.dashMes, g = gastosMes(ym), total = sum(g), prev = sum(gastosMes(shiftYM(ym,-1)));
+  const pend = pendientes(), t = today(), venc = pend.filter(x => x.vencimiento && x.vencimiento < t);
+  const al = alertas();
+  const fijosAct = state.fijos.filter(f => f.activo !== false && (!f.desde || f.desde <= ym));
+  const fijosPag = fijosAct.filter(f => fijoPagado(f, ym));
+  const delta = prev ? Math.round((total - prev) / prev * 100) : null;
+
+  const months = Array.from({length:6}, (_,i) => shiftYM(ym, i-5));
+  const mt = months.map(m => sum(gastosMes(m))), max = Math.max(...mt, 1);
+
+  const byKey = (k, list) => { const o = {}; g.forEach(x => { const key = x[k] || 'Sin asignar'; o[key] = (o[key]||0) + (Number(x.total)||0); });
+    let e = Object.entries(o).sort((a,b) => b[1]-a[1]); if (list) { const rest = e.slice(list); e = e.slice(0,list); if (rest.length) e.push(['Otras', rest.reduce((a,x)=>a+x[1],0)]); } return e; };
+  const hbars = (entries, color) => entries.length ? entries.map(([n,a]) => `
+    <div class="hbar"><div class="n">${esc(n)}</div><div class="a num">${clp(a)}<span class="p">${total?Math.round(a/total*100):0}%</span></div>
+    <div class="track"><div class="fill" style="width:${total?a/entries[0][1]*100:0}%;background:${color}"></div></div></div>`).join('') : '<div class="empty">Sin gastos este mes</div>';
+  const pagos = Object.keys(PAGOS).map(k => [k, sum(g.filter(x => x.formaPago === k))]);
+
+  v.innerHTML = `
+  <div class="page-head">
+    <div><h2>Resumen de gastos</h2><div class="sub">Gastos registrados por fecha de documento</div></div>
+    <select class="input" id="dashMes" style="width:auto">${monthOptions(ym)}</select>
+  </div>
+  ${al.length ? `<div class="alerts">${al.slice(0,4).map(alertHTML).join('')}${al.length>4?`<button class="btn btn-sm" style="justify-self:start" data-nav="porpagar">Ver ${al.length-4} alerta${al.length-4===1?'':'s'} más</button>`:''}</div>` : ''}
+  <div class="kpis">
+    <div class="card kpi"><div class="l">Gasto de ${MESES[Number(ym.slice(5))-1]}</div><div class="v num">${clp(total)}</div>
+      <div class="d">${delta === null ? `${g.length} documentos` : `<span class="${delta>0?'up':'down'}">${delta>0?'▲':'▼'} ${Math.abs(delta)}%</span> vs mes anterior`}</div></div>
+    <div class="card kpi"><div class="l">Facturas por pagar</div><div class="v num">${clp(sum(pend))}</div><div class="d">${pend.length} factura${pend.length===1?'':'s'} a crédito</div></div>
+    <div class="card kpi ${venc.length?'kpi-red':''}"><div class="l">Vencido</div><div class="v num">${clp(sum(venc))}</div><div class="d">${venc.length ? `${venc.length} factura${venc.length===1?'':'s'} vencida${venc.length===1?'':'s'}` : 'Nada vencido 👍'}</div></div>
+    <div class="card kpi"><div class="l">Gastos fijos del mes</div><div class="v num">${fijosPag.length} / ${fijosAct.length}</div><div class="d">pagados · ${clp(fijosAct.filter(f=>!fijoPagado(f,ym)).reduce((a,f)=>a+Number(f.monto||0),0))} por pagar</div></div>
+  </div>
+  <div class="dash-grid">
+    <div class="card"><div class="card-h"><h3>Últimos 6 meses</h3></div>
+      <div class="card-b"><div class="bars">${months.map((m,i) => `
+        <button class="bar ${m===ym?'sel':''}" data-mes="${m}"><span class="val num">${mt[i]?short(mt[i]):''}</span>
+        <div class="col" style="height:${mt[i]/max*130}px"></div><span class="lab">${MES3[Number(m.slice(5))-1]}</span></button>`).join('')}</div></div></div>
+    <div class="card"><div class="card-h"><h3>Por centro de costo</h3></div><div class="card-b">${hbars(byKey('centro'), 'var(--brand)')}</div></div>
+    <div class="card"><div class="card-h"><h3>Por categoría</h3><button class="link" data-goto-gastos="${ym}">Ver detalle</button></div><div class="card-b">${hbars(byKey('categoria',6), 'var(--orange)')}</div></div>
+    <div class="card"><div class="card-h"><h3>Forma de pago</h3></div><div class="card-b"><div class="pays">${pagos.map(([k,a]) => `
+      <div class="pay"><div class="l"><i style="background:${PAGO_COLOR[k]}"></i>${PAGOS[k]}</div><div class="v num">${clp(a)}</div></div>`).join('')}</div>
+      <div class="card-h" style="padding:16px 0 4px"><h3>Próximos vencimientos</h3><button class="link" data-nav="porpagar">Ver todo</button></div>
+      ${pend.slice(0,5).map(x => { const d = diffDays(x.vencimiento||t, t); return `
+        <div class="hbar" style="cursor:pointer" data-edit="${x.id}"><div class="n">${esc(x.proveedor)} <span class="note">· N° ${esc(x.numero||'s/n')}</span></div><div class="a num">${clp(x.total)}</div>
+        <div style="grid-column:1/-1"><span class="pill ${d<0?'red':d<=AVISO_FACTURAS_DIAS?'amber':'gray'}">${fdate(x.vencimiento)} · ${relDays(d)}</span></div></div>`; }).join('') || '<div class="empty">No hay facturas pendientes</div>'}
+    </div></div>
+  </div>`;
+  $('#dashMes').onchange = e => { state.dashMes = e.target.value; render(); };
+}
+
+function alertHTML(a){
+  const isF = a.tipo === 'fijo';
+  const title = isF ? `${esc(a.f.nombre)} · ${ymLabel(a.ym)}` : `Factura N° ${esc(a.g.numero||'s/n')} · ${esc(a.g.proveedor)}`;
+  return `<div class="alert ${a.nivel}"><div class="ico">${ic(a.nivel==='red'?'alert':'bell')}</div>
+    <div class="t"><b>${title}</b><small>${isF?'Gasto fijo':'Factura a crédito'} · ${relDays(a.d)} (${fdate(a.due)})</small></div>
+    <div class="amt num">${clp(isF ? a.f.monto : a.g.total)}</div>
+    ${isF ? `<button class="btn btn-sm" data-pay-fijo="${a.f.id}" data-ym="${a.ym}">Registrar pago</button>` : `<button class="btn btn-sm" data-pay="${a.g.id}">Marcar pagada</button>`}</div>`;
+}
+
+function monthOptions(sel, withAll){
+  const ms = new Set([curYM(), ...state.gastos.map(g => (g.fecha||'').slice(0,7)).filter(Boolean)]);
+  if (sel && sel !== 'todos') ms.add(sel);
+  return (withAll ? `<option value="todos" ${sel==='todos'?'selected':''}>Todos los meses</option>` : '') +
+    [...ms].sort().reverse().map(m => `<option value="${m}" ${m===sel?'selected':''}>${ymLabel(m).replace(/^./, c=>c.toUpperCase())}</option>`).join('');
+}
+
+/* ---------- Gastos ---------- */
+function filteredGastos(){
+  const f = state.f, q = f.q.trim().toLowerCase();
+  return state.gastos.filter(g =>
+    (f.mes === 'todos' || (g.fecha||'').startsWith(f.mes)) && (!f.centro || g.centro === f.centro) && (!f.cat || g.categoria === f.cat) &&
+    (!f.tipo || g.tipoDoc === f.tipo) && (!f.pago || g.formaPago === f.pago) &&
+    (!q || [g.proveedor,g.numero,g.descripcion,g.rut].join(' ').toLowerCase().includes(q))
+  ).sort((a,b) => (b.fecha||'').localeCompare(a.fecha||'') || (b.creadoEn||'').localeCompare(a.creadoEn||''));
+}
+
+function estadoPill(g){
+  if (g.formaPago !== 'credito') return `<span class="pill ${g.formaPago==='efectivo'?'green':g.formaPago==='transferencia'?'blue':'gray'}">${PAGOS[g.formaPago]||'—'}</span>`;
+  if (g.estado === 'pagado') return `<span class="pill green">Crédito · pagada</span>`;
+  const d = g.vencimiento ? diffDays(g.vencimiento, today()) : 99;
+  return `<span class="pill ${d<0?'red':d<=AVISO_FACTURAS_DIAS?'amber':'purple'}">Crédito · ${d<0?'vencida':'pendiente'}</span>`;
+}
+
+function rowHTML(g){
+  return `<button class="row" data-edit="${g.id}">
+    <div><div class="r-title">${esc(g.proveedor||'Sin proveedor')}${g.tieneFoto?ic('clip'):''}</div>
+      <div class="r-sub">${TIPOS[g.tipoDoc]||''}${g.numero?' N° '+esc(g.numero):''} · ${esc(g.centro||'')} · ${esc(g.categoria||'')}${g.descripcion?' · '+esc(g.descripcion):''}</div></div>
+    <div class="r-date">${fdate(g.fecha)}</div>
+    <div class="r-state">${estadoPill(g)}</div>
+    <div class="r-amt num">${clp(g.total)}</div></button>`;
+}
+
+function viewGastos(v){
+  const f = state.f, list = filteredGastos();
+  const sel = (k, opts, label) => `<select class="input" data-f="${k}"><option value="">${label}</option>${opts.map(([val,l]) => `<option value="${esc(val)}" ${f[k]===val?'selected':''}>${esc(l)}</option>`).join('')}</select>`;
+  v.innerHTML = `
+  <div class="page-head"><div><h2>Gastos</h2><div class="sub">Facturas, boletas y otros comprobantes</div></div>
+    <div style="display:flex;gap:8px"><button class="btn" data-act="csv">${ic('dl')} Exportar</button><button class="btn btn-primary btn-desk" data-act="new">${ic('plus')} Nuevo gasto</button></div></div>
+  <div class="filters">
+    <input class="input search" data-f="q" placeholder="Buscar proveedor, N°, descripción…" value="${esc(f.q)}">
+    <select class="input" data-f="mes">${monthOptions(f.mes, true)}</select>
+    ${sel('centro', CENTROS.map(c=>[c,c]), 'Todos los centros')}
+    ${sel('cat', CATEGORIAS.map(c=>[c,c]), 'Todas las categorías')}
+    ${sel('tipo', Object.entries(TIPOS), 'Todo tipo de doc.')}
+    ${sel('pago', Object.entries(PAGOS), 'Toda forma de pago')}
+  </div>
+  <div class="card">
+    <div class="list-sum"><span>${list.length} documento${list.length===1?'':'s'}</span><span>Total <b class="num">${clp(sum(list))}</b></span></div>
+    ${list.length ? list.map(rowHTML).join('') : '<div class="empty">No hay gastos con estos filtros</div>'}
+  </div>`;
+  v.querySelectorAll('[data-f]').forEach(el => el.addEventListener(el.tagName === 'INPUT' ? 'input' : 'change', e => {
+    state.f[el.dataset.f] = e.target.value;
+    if (el.tagName === 'INPUT') { clearTimeout(viewGastos.t); viewGastos.t = setTimeout(() => { render(); const s = $('[data-f=q]'); s.focus(); s.setSelectionRange(s.value.length, s.value.length); }, 250); }
+    else render();
+  }));
+}
+
+/* ---------- Por pagar ---------- */
+function viewPorPagar(v){
+  const t = today(), pend = pendientes();
+  const groups = [
+    ['Vencidas','red', pend.filter(g => g.vencimiento && g.vencimiento < t)],
+    [`Vencen en los próximos ${AVISO_FACTURAS_DIAS} días`,'amber', pend.filter(g => g.vencimiento && g.vencimiento >= t && diffDays(g.vencimiento,t) <= AVISO_FACTURAS_DIAS)],
+    ['Más adelante','', pend.filter(g => !g.vencimiento || diffDays(g.vencimiento,t) > AVISO_FACTURAS_DIAS)],
+  ];
+  const porProv = {}; pend.forEach(g => { const k = g.proveedor||'Sin proveedor'; (porProv[k] ||= {n:0,t:0,v:0}); porProv[k].n++; porProv[k].t += Number(g.total)||0; if (g.vencimiento && g.vencimiento < t) porProv[k].v += Number(g.total)||0; });
+  const fp = fijosPendientes();
+  v.innerHTML = `
+  <div class="page-head"><div><h2>Facturas por pagar</h2><div class="sub">Facturas a crédito pendientes, ordenadas por vencimiento</div></div>
+    <button class="btn btn-primary btn-desk" data-act="new">${ic('plus')} Nuevo gasto</button></div>
+  <div class="pp-grid">
+    <div class="card" style="overflow:hidden">
+      <div class="list-sum"><span>${pend.length} factura${pend.length===1?'':'s'} pendiente${pend.length===1?'':'s'}</span><span>Deuda total <b class="num">${clp(sum(pend))}</b></span></div>
+      ${pend.length ? groups.filter(gr => gr[2].length).map(([title,cls,list]) => `
+        <div class="group-h ${cls}"><span>${title}</span><span class="num">${clp(sum(list))}</span></div>
+        ${list.map(g => { const d = g.vencimiento ? diffDays(g.vencimiento,t) : null; return `
+          <div class="row row-pp" data-edit="${g.id}">
+            <div><div class="r-title">${esc(g.proveedor)}</div><div class="r-sub">Factura N° ${esc(g.numero||'s/n')} · ${esc(g.centro)} · emitida ${fdate(g.fecha)}</div></div>
+            <div class="r-state"><span class="pill ${d===null?'gray':d<0?'red':d<=AVISO_FACTURAS_DIAS?'amber':'gray'}">${d===null?'Sin vencimiento':fdate(g.vencimiento)+' · '+relDays(d)}</span></div>
+            <div class="r-amt num">${clp(g.total)}</div>
+            <div class="r-act" style="text-align:right"><button class="btn btn-sm" data-pay="${g.id}">Pagar</button></div>
+          </div>`; }).join('')}`).join('') : '<div class="empty">🎉 No hay facturas pendientes de pago</div>'}
+    </div>
+    <div style="display:grid;gap:14px">
+      <div class="card"><div class="card-h"><h3>Deuda por proveedor</h3></div><div class="card-b">
+        ${Object.entries(porProv).sort((a,b)=>b[1].t-a[1].t).map(([p,o]) => `
+          <div class="hbar"><div class="n">${esc(p)}<div class="note">${o.n} factura${o.n===1?'':'s'}${o.v?` · <span style="color:var(--red)">${clp(o.v)} vencido</span>`:''}</div></div><div class="a num">${clp(o.t)}</div></div>`).join('') || '<div class="empty">Sin deuda</div>'}
+      </div></div>
+      <div class="card"><div class="card-h"><h3>Gastos fijos pendientes</h3><button class="link" data-nav="fijos">Ver fijos</button></div><div class="card-b">
+        ${fp.map(x => `<div class="hbar"><div class="n">${esc(x.f.nombre)}<div class="note"><span class="pill ${x.nivel==='red'?'red':x.nivel==='amber'?'amber':'gray'}">${fdate(x.due)} · ${relDays(x.d)}</span></div></div>
+          <div class="a"><div class="num">${clp(x.f.monto)}</div><button class="btn btn-sm" style="margin-top:4px" data-pay-fijo="${x.f.id}" data-ym="${x.ym}">Pagar</button></div></div>`).join('') || '<div class="empty">Todo al día</div>'}
+      </div></div>
+    </div>
+  </div>`;
+}
+
+/* ---------- Gastos fijos ---------- */
+function viewFijos(v){
+  const ym = curYM(), t = today();
+  const list = [...state.fijos].sort((a,b) => (b.activo!==false) - (a.activo!==false) || Number(a.dia) - Number(b.dia));
+  const totalMes = list.filter(f => f.activo !== false).reduce((a,f) => a + Number(f.monto||0), 0);
+  v.innerHTML = `
+  <div class="page-head"><div><h2>Gastos fijos</h2><div class="sub">Arriendos, servicios y pagos mensuales con alerta · estado de ${ymLabel(ym)}</div></div>
+    <button class="btn btn-primary" data-act="new-fijo">${ic('plus')} Nuevo gasto fijo</button></div>
+  <div class="card">
+    <div class="list-sum"><span>${list.filter(f=>f.activo!==false).length} activos</span><span>Total mensual aprox. <b class="num">${clp(totalMes)}</b></span></div>
+    ${list.length ? list.map(f => {
+      const pag = fijoPagado(f, ym), due = fijoDue(f, ym), d = diffDays(due, t), aviso = Number(f.avisarDias ?? 5);
+      const st = f.activo === false ? '<span class="pill gray">Inactivo</span>'
+        : pag ? `<span class="pill green">Pagado ${fdate(pag.fecha)}</span>`
+        : `<span class="pill ${d<0?'red':d<=aviso?'amber':'gray'}">${d<0?'Vencido':'Pendiente'} · día ${f.dia}</span>`;
+      return `<div class="fijo">
+        <div style="cursor:pointer;min-width:0" data-edit-fijo="${f.id}"><div class="r-title">${esc(f.nombre)}</div><div class="r-sub">${esc(f.centro)} · ${esc(f.categoria)} · ${esc(f.proveedor||'')} · aviso ${aviso} días antes</div></div>
+        <div class="f-amt num" style="font-weight:600;text-align:right">${clp(f.monto)}</div>
+        <div class="f-state">${st}</div>
+        <div class="f-act" style="display:flex;gap:6px;justify-content:flex-end">
+          ${pag ? `<button class="btn btn-sm btn-ghost" data-edit="${pag.id}">Ver pago</button>` : f.activo !== false ? `<button class="btn btn-sm" data-pay-fijo="${f.id}" data-ym="${ym}">Registrar pago</button>` : ''}
+          <button class="btn btn-sm btn-ghost" data-edit-fijo="${f.id}">Editar</button></div>
+      </div>`; }).join('') : '<div class="empty">Agrega tus arriendos y gastos fijos para recibir alertas antes de cada vencimiento.</div>'}
+  </div>`;
+}
+
+/* ================================================================
+   6) FORMULARIOS / MODALES
+   ================================================================ */
+function openModal(title, body, foot){
+  closeModal();
+  const bg = document.createElement('div'); bg.className = 'modal-bg'; bg.id = 'modal';
+  bg.innerHTML = `<form class="modal" novalidate><div class="modal-h"><h3>${title}</h3><button type="button" class="x" data-close>${ic('x')}</button></div>
+    <div class="modal-b">${body}</div><div class="modal-f">${foot}</div></form>`;
+  bg.addEventListener('mousedown', e => { if (e.target === bg) closeModal(); });
+  bg.querySelector('[data-close]').onclick = closeModal;
+  document.body.appendChild(bg); document.body.style.overflow = 'hidden';
+  return bg.querySelector('form');
+}
+function closeModal(){ $('#modal')?.remove(); document.body.style.overflow = ''; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+function toast(msg){ $('.toast')?.remove(); const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2800); }
+
+const seg = (name, opts, val) => `<div class="seg">${Object.entries(opts).map(([k,l]) => `<label><input type="radio" name="${name}" value="${k}" ${k===val?'checked':''}><span>${l}</span></label>`).join('')}</div>`;
+const selOpts = (opts, val) => opts.map(o => `<option ${o===val?'selected':''}>${esc(o)}</option>`).join('');
+
+function provDatalist(){
+  const m = {}; state.gastos.forEach(g => { if (g.proveedor) m[g.proveedor] = m[g.proveedor] || g.rut || ''; });
+  state.fijos.forEach(f => { if (f.proveedor) m[f.proveedor] ||= ''; });
+  return `<datalist id="provs">${Object.keys(m).sort().map(p => `<option value="${esc(p)}">`).join('')}</datalist>`;
+}
+
+function gastoForm(g = {}){
+  const isNew = !g.id;
+  g = { tipoDoc:'factura', fecha:today(), formaPago:'transferencia', centro:CENTROS[0], categoria:CATEGORIAS[0], estado:'pagado', ...g };
+  const fijo = g.fijoId && state.fijos.find(f => f.id === g.fijoId);
+  const body = `
+    ${fijo ? `<div class="box note">Pago de gasto fijo: <b>${esc(fijo.nombre)}</b> — ${ymLabel(g.periodo)}</div>` : ''}
+    <label class="field"><span>Tipo de documento</span>${seg('tipoDoc', TIPOS, g.tipoDoc)}</label>
+    <div class="grid2">
+      <label class="field"><span>Fecha del documento</span><input class="input" type="date" name="fecha" value="${g.fecha}" required></label>
+      <label class="field"><span>N° documento</span><input class="input" name="numero" inputmode="numeric" value="${esc(g.numero||'')}" placeholder="Ej: 12345"></label>
+    </div>
+    <div class="grid2">
+      <label class="field" style="grid-column:span 1"><span>Proveedor / comercio</span><input class="input" name="proveedor" list="provs" value="${esc(g.proveedor||'')}" placeholder="Nombre" required autocomplete="off"></label>
+      <label class="field" data-only="factura"><span>RUT proveedor</span><input class="input" name="rut" value="${esc(g.rut||'')}" placeholder="76.123.456-7"></label>
+    </div>
+    ${provDatalist()}
+    <div class="grid2">
+      <label class="field"><span>Centro de costo</span><select class="input" name="centro">${selOpts(CENTROS, g.centro)}</select></label>
+      <label class="field"><span>Categoría</span><select class="input" name="categoria">${selOpts(CATEGORIAS, g.categoria)}</select></label>
+    </div>
+    <label class="field"><span>Descripción (opcional)</span><input class="input" name="descripcion" value="${esc(g.descripcion||'')}" placeholder="Qué se compró"></label>
+    <div class="grid2">
+      <label class="field"><span>Monto total (con IVA)</span><input class="input num" name="total" inputmode="numeric" value="${g.total ? Math.round(g.total).toLocaleString('es-CL') : ''}" placeholder="$0" required style="font-weight:600;font-size:17px"></label>
+      <div class="field" data-only="factura"><span>Neto / IVA</span><div class="box num" id="netoIva" style="min-height:40px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px"></div></div>
+    </div>
+    <label data-only="factura" style="display:flex;gap:8px;align-items:center;font-size:13.5px;margin-top:-6px"><input type="checkbox" name="exenta" ${g.exenta?'checked':''}> Factura exenta de IVA</label>
+    <label class="field"><span>Forma de pago</span>${seg('formaPago', PAGOS, g.formaPago)}</label>
+    <div id="creditoBox" class="box" style="display:grid;gap:10px">
+      <div class="grid2">
+        <label class="field"><span>Fecha de vencimiento</span><input class="input" type="date" name="vencimiento" value="${g.vencimiento||''}"></label>
+        <label class="field"><span>Estado</span><select class="input" name="estado"><option value="pendiente" ${g.estado!=='pagado'?'selected':''}>Pendiente de pago</option><option value="pagado" ${g.estado==='pagado'?'selected':''}>Pagada</option></select></label>
+      </div>
+      <div class="chips" id="plazos"><span class="note" style="align-self:center">Plazo:</span>${[15,30,45,60,90].map(d => `<button type="button" class="chip" data-plazo="${d}">${d} días</button>`).join('')}</div>
+      <div class="grid2" id="pagoCredito">
+        <label class="field"><span>Fecha de pago</span><input class="input" type="date" name="fechaPago" value="${g.fechaPago||''}"></label>
+        <label class="field"><span>Pagada con</span><select class="input" name="medioPago">${Object.entries(MEDIOS_PAGO_CREDITO).map(([k,l]) => `<option value="${k}" ${g.medioPago===k?'selected':''}>${l}</option>`).join('')}</select></label>
+      </div>
+    </div>
+    <div class="field"><span>Foto del documento (opcional)</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <label class="btn btn-sm">${ic('cam')} ${g.tieneFoto?'Cambiar foto':'Tomar / subir foto'}<input type="file" accept="image/*" capture="environment" name="foto" hidden></label>
+        ${g.tieneFoto ? `<button type="button" class="btn btn-sm btn-ghost" id="verFoto">Ver foto actual</button>` : ''}
+        <span class="note" id="fotoInfo"></span>
+      </div>
+      <div id="fotoPrev"></div>
+    </div>
+    <div class="note" id="dupWarn" style="color:var(--amber)"></div>
+    ${!isNew ? `<div class="note">Registrado por ${esc(g.creadoPor||'—')}${g.creadoEn?' el '+fdate(g.creadoEn.slice(0,10)):''}</div>` : ''}`;
+  const foot = `${!isNew ? `<button type="button" class="btn btn-danger" id="del">Eliminar</button>` : ''}<span class="spacer"></span>
+    <button type="button" class="btn" data-close2>Cancelar</button><button class="btn btn-primary">${isNew?'Guardar gasto':'Guardar cambios'}</button>`;
+  const form = openModal(isNew ? 'Nuevo gasto' : 'Editar gasto', body, foot);
+  form.querySelector('[data-close2]').onclick = closeModal;
+  let fotoData = null;
+
+  const upd = () => {
+    const fd = new FormData(form), tipo = fd.get('tipoDoc'), pago = fd.get('formaPago'), total = parseMonto(fd.get('total'));
+    form.querySelectorAll('[data-only=factura]').forEach(el => el.style.display = tipo === 'factura' ? '' : 'none');
+    $('#creditoBox', form).style.display = pago === 'credito' ? 'grid' : 'none';
+    $('#pagoCredito', form).style.display = fd.get('estado') === 'pagado' ? '' : 'none';
+    const neto = fd.get('exenta') ? total : Math.round(total / 1.19);
+    $('#netoIva', form).innerHTML = `<span>${clp(neto)}</span><span class="note">IVA ${clp(total - neto)}</span>`;
+    const num = (fd.get('numero')||'').trim(), prov = (fd.get('proveedor')||'').trim().toLowerCase();
+    const dup = num && state.gastos.find(x => x.id !== g.id && x.numero === num && (x.proveedor||'').toLowerCase() === prov && x.tipoDoc === tipo);
+    $('#dupWarn', form).textContent = dup ? `⚠ Ya existe un documento N° ${num} de este proveedor (${fdate(dup.fecha)}, ${clp(dup.total)}).` : '';
+  };
+  form.addEventListener('input', upd); form.addEventListener('change', upd);
+  const totalIn = form.total;
+  totalIn.addEventListener('input', () => { const n = parseMonto(totalIn.value); totalIn.value = n ? n.toLocaleString('es-CL') : ''; });
+  form.proveedor.addEventListener('change', () => {
+    const last = state.gastos.filter(x => x.proveedor === form.proveedor.value).sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''))[0];
+    if (last && isNew) { if (!form.rut.value) form.rut.value = last.rut || ''; form.centro.value = last.centro; form.categoria.value = last.categoria; upd(); }
+  });
+  form.querySelectorAll('[data-plazo]').forEach(b => b.onclick = () => { form.vencimiento.value = addDays(form.fecha.value || today(), Number(b.dataset.plazo)); });
+  form.formaPago.forEach?.(r => r.addEventListener('change', () => {
+    if (r.checked && r.value === 'credito') { form.estado.value = g.formaPago === 'credito' ? g.estado : 'pendiente'; if (!form.vencimiento.value) form.vencimiento.value = addDays(form.fecha.value || today(), 30); upd(); }
+  }));
+  form.estado.addEventListener('change', () => { if (form.estado.value === 'pagado' && !form.fechaPago.value) form.fechaPago.value = today(); });
+  form.foto.addEventListener('change', async () => {
+    const file = form.foto.files[0]; if (!file) return;
+    $('#fotoInfo', form).textContent = 'Procesando…';
+    try { fotoData = await compressImage(file); $('#fotoPrev', form).innerHTML = `<img class="photo-prev" src="${fotoData}" style="margin-top:8px">`;
+      $('#fotoInfo', form).textContent = `Lista (${Math.round(fotoData.length*0.75/1024)} KB)`; }
+    catch { $('#fotoInfo', form).textContent = 'No se pudo leer la imagen'; }
+  });
+  $('#verFoto', form)?.addEventListener('click', async () => {
+    $('#fotoPrev', form).innerHTML = '<span class="note">Cargando…</span>';
+    const f = await store.get('fotos', g.id); $('#fotoPrev', form).innerHTML = f?.data ? `<a href="${f.data}" target="_blank"><img class="photo-prev" src="${f.data}" style="margin-top:8px"></a>` : '<span class="note">Sin foto</span>';
+  });
+  $('#del', form)?.addEventListener('click', async () => {
+    if (!confirm('¿Eliminar este gasto? No se puede deshacer.')) return;
+    await store.remove('gastos', g.id); if (g.tieneFoto) store.remove('fotos', g.id).catch(()=>{}); closeModal(); toast('Gasto eliminado');
+  });
+  upd();
+
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const fd = new FormData(form), total = parseMonto(fd.get('total')), tipo = fd.get('tipoDoc'), pago = fd.get('formaPago');
+    if (!fd.get('proveedor').trim()) return toast('Falta el proveedor');
+    if (!total) return toast('Falta el monto');
+    if (!fd.get('fecha')) return toast('Falta la fecha');
+    if (pago === 'credito' && !fd.get('vencimiento')) return toast('Indica la fecha de vencimiento');
+    const exenta = tipo === 'factura' && !!fd.get('exenta');
+    const neto = tipo === 'factura' && !exenta ? Math.round(total / 1.19) : total;
+    const estado = pago === 'credito' ? fd.get('estado') : 'pagado';
+    const data = {
+      tipoDoc:tipo, fecha:fd.get('fecha'), numero:fd.get('numero').trim(), proveedor:fd.get('proveedor').trim(), rut: tipo==='factura' ? fd.get('rut').trim() : '',
+      centro:fd.get('centro'), categoria:fd.get('categoria'), descripcion:fd.get('descripcion').trim(),
+      total, neto, iva: total - neto, exenta, formaPago:pago,
+      vencimiento: pago === 'credito' ? fd.get('vencimiento') : '', estado,
+      fechaPago: pago === 'credito' && estado === 'pagado' ? (fd.get('fechaPago') || today()) : '',
+      medioPago: pago === 'credito' && estado === 'pagado' ? fd.get('medioPago') : '',
+      fijoId: g.fijoId || '', periodo: g.periodo || '', tieneFoto: !!(g.tieneFoto || fotoData),
+    };
+    const btn = form.querySelector('.btn-primary'); btn.disabled = true; btn.textContent = 'Guardando…';
+    try {
+      let id = g.id;
+      if (isNew) id = await store.add('gastos', { ...data, creadoPor:state.user.email, creadoEn:new Date().toISOString() });
+      else await store.update('gastos', id, { ...data, editadoPor:state.user.email, editadoEn:new Date().toISOString() });
+      if (fotoData) await store.set('fotos', id, { data:fotoData });
+      closeModal(); toast(isNew ? 'Gasto guardado ✓' : 'Cambios guardados ✓');
+    } catch (err) { btn.disabled = false; btn.textContent = 'Reintentar'; toast('Error al guardar: ' + (err.code || err.message)); }
+  };
+}
+
+function payForm(g){
+  const body = `<div class="box"><b>${esc(g.proveedor)}</b><div class="note">Factura N° ${esc(g.numero||'s/n')} · vence ${fdate(g.vencimiento)}</div>
+      <div style="font-size:22px;font-weight:700;margin-top:6px" class="num">${clp(g.total)}</div></div>
+    <div class="grid2">
+      <label class="field"><span>Fecha de pago</span><input class="input" type="date" name="fechaPago" value="${today()}" required></label>
+      <label class="field"><span>Pagada con</span><select class="input" name="medioPago">${Object.entries(MEDIOS_PAGO_CREDITO).map(([k,l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>
+    </div>`;
+  const form = openModal('Marcar factura como pagada', body, `<span class="spacer"></span><button type="button" class="btn" data-close2>Cancelar</button><button class="btn btn-primary">Confirmar pago</button>`);
+  form.querySelector('[data-close2]').onclick = closeModal;
+  form.onsubmit = async e => { e.preventDefault(); const fd = new FormData(form);
+    await store.update('gastos', g.id, { estado:'pagado', fechaPago:fd.get('fechaPago'), medioPago:fd.get('medioPago'), editadoPor:state.user.email, editadoEn:new Date().toISOString() });
+    closeModal(); toast('Factura marcada como pagada ✓'); };
+}
+
+function fijoForm(f = {}){
+  const isNew = !f.id;
+  f = { categoria:'Arriendo', centro:CENTROS[0], dia:5, avisarDias:5, tipoDoc:'factura', activo:true, desde:curYM(), ...f };
+  const body = `
+    <label class="field"><span>Nombre</span><input class="input" name="nombre" value="${esc(f.nombre||'')}" placeholder="Ej: Arriendo Local Antonio Varas" required></label>
+    <div class="grid2">
+      <label class="field"><span>Categoría</span><select class="input" name="categoria">${selOpts(CATEGORIAS, f.categoria)}</select></label>
+      <label class="field"><span>Centro de costo</span><select class="input" name="centro">${selOpts(CENTROS, f.centro)}</select></label>
+    </div>
+    <label class="field"><span>Proveedor / arrendador</span><input class="input" name="proveedor" list="provs" value="${esc(f.proveedor||'')}" autocomplete="off"></label>${provDatalist()}
+    <div class="grid2">
+      <label class="field"><span>Monto mensual</span><input class="input num" name="monto" inputmode="numeric" value="${f.monto ? Number(f.monto).toLocaleString('es-CL') : ''}" required></label>
+      <label class="field"><span>Día de pago (1–31)</span><input class="input" type="number" min="1" max="31" name="dia" value="${f.dia}" required></label>
+    </div>
+    <div class="grid2">
+      <label class="field"><span>Avisar con (días antes)</span><input class="input" type="number" min="0" max="30" name="avisarDias" value="${f.avisarDias}"></label>
+      <label class="field"><span>Documento habitual</span><select class="input" name="tipoDoc">${Object.entries(TIPOS).map(([k,l]) => `<option value="${k}" ${f.tipoDoc===k?'selected':''}>${l}</option>`).join('')}</select></label>
+    </div>
+    <div class="grid2">
+      <label class="field"><span>Controlar desde</span><input class="input" type="month" name="desde" value="${f.desde}"></label>
+      <label class="field"><span>Estado</span><select class="input" name="activo"><option value="1" ${f.activo!==false?'selected':''}>Activo</option><option value="0" ${f.activo===false?'selected':''}>Inactivo</option></select></label>
+    </div>`;
+  const foot = `${!isNew ? `<button type="button" class="btn btn-danger" id="del">Eliminar</button>` : ''}<span class="spacer"></span>
+    <button type="button" class="btn" data-close2>Cancelar</button><button class="btn btn-primary">Guardar</button>`;
+  const form = openModal(isNew ? 'Nuevo gasto fijo' : 'Editar gasto fijo', body, foot);
+  form.querySelector('[data-close2]').onclick = closeModal;
+  form.monto.addEventListener('input', () => { const n = parseMonto(form.monto.value); form.monto.value = n ? n.toLocaleString('es-CL') : ''; });
+  $('#del', form)?.addEventListener('click', async () => { if (!confirm('¿Eliminar este gasto fijo? Los pagos ya registrados se mantienen.')) return; await store.remove('fijos', f.id); closeModal(); toast('Gasto fijo eliminado'); });
+  form.onsubmit = async e => { e.preventDefault(); const fd = new FormData(form);
+    if (!fd.get('nombre').trim() || !parseMonto(fd.get('monto'))) return toast('Completa nombre y monto');
+    const data = { nombre:fd.get('nombre').trim(), categoria:fd.get('categoria'), centro:fd.get('centro'), proveedor:fd.get('proveedor').trim(),
+      monto:parseMonto(fd.get('monto')), dia:Math.min(31, Math.max(1, Number(fd.get('dia'))||1)), avisarDias:Number(fd.get('avisarDias'))||0,
+      tipoDoc:fd.get('tipoDoc'), desde:fd.get('desde') || curYM(), activo:fd.get('activo') === '1' };
+    if (isNew) await store.add('fijos', data); else await store.update('fijos', f.id, data);
+    closeModal(); toast('Gasto fijo guardado ✓'); };
+}
+
+function compressImage(file, max = 1400, q = 0.6){
+  return new Promise((res, rej) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => { let { width:w, height:h } = img; const s = Math.min(1, max / Math.max(w, h)); w = Math.round(w*s); h = Math.round(h*s);
+      const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(img, 0, 0, w, h); URL.revokeObjectURL(url);
+      let out = c.toDataURL('image/jpeg', q); if (out.length > 900000) out = c.toDataURL('image/jpeg', 0.4); res(out); };
+    img.onerror = rej; img.src = url;
+  });
+}
+
+function exportCSV(){
+  const list = filteredGastos();
+  const cols = [['fecha','Fecha'],['tipoDoc','Tipo'],['numero','N°'],['proveedor','Proveedor'],['rut','RUT'],['centro','Centro de costo'],['categoria','Categoría'],['descripcion','Descripción'],
+    ['neto','Neto'],['iva','IVA'],['total','Total'],['formaPago','Forma de pago'],['vencimiento','Vencimiento'],['estado','Estado'],['fechaPago','Fecha pago'],['medioPago','Pagada con'],['creadoPor','Registrado por']];
+  const q = v => { v = String(v ?? ''); return /[;"\n]/.test(v) ? `"${v.replace(/"/g,'""')}"` : v; };
+  const csv = '﻿' + [cols.map(c => c[1]).join(';'), ...list.map(g => cols.map(([k]) => q(g[k])).join(';'))].join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type:'text/csv;charset=utf-8' }));
+  a.download = `gastos_renni_${state.f.mes}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* ================================================================
+   7) EVENTOS GLOBALES E INICIO
+   ================================================================ */
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-nav],[data-act],[data-edit],[data-pay],[data-pay-fijo],[data-edit-fijo],[data-mes],[data-goto-gastos]');
+  if (!el || el.closest('#modal')) return;
+  const d = el.dataset;
+  if (d.pay) { e.stopPropagation(); const g = state.gastos.find(x => x.id === d.pay); if (g) payForm(g); return; }
+  if (d.payFijo) { e.stopPropagation(); const f = state.fijos.find(x => x.id === d.payFijo);
+    if (f) gastoForm({ fijoId:f.id, periodo:d.ym, proveedor:f.proveedor, categoria:f.categoria, centro:f.centro, total:f.monto, tipoDoc:f.tipoDoc||'factura', descripcion:`${f.nombre} ${ymLabel(d.ym)}` }); return; }
+  if (d.editFijo) { const f = state.fijos.find(x => x.id === d.editFijo); if (f) fijoForm(f); return; }
+  if (d.edit) { const g = state.gastos.find(x => x.id === d.edit); if (g) gastoForm(g); return; }
+  if (d.mes) { state.dashMes = d.mes; render(); return; }
+  if (d.gotoGastos) { state.f = { ...state.f, mes:d.gotoGastos, centro:'', cat:'', tipo:'', pago:'', q:'' }; state.view = 'gastos'; render(); window.scrollTo(0,0); return; }
+  if (d.nav) { state.view = d.nav; render(); window.scrollTo(0,0); return; }
+  if (d.act === 'new') gastoForm();
+  if (d.act === 'new-fijo') fijoForm();
+  if (d.act === 'csv') exportCSV();
+  if (d.act === 'logout' && confirm(DEMO ? '¿Salir del modo demo? Se borrarán los datos de ejemplo.' : '¿Cerrar sesión?')) store.logout();
+});
+
+(async function init(){
+  try { store = DEMO ? demoStore() : await firebaseStore(); }
+  catch (err) { root.innerHTML = `<div class="loading">No se pudo cargar Firebase. Revisa tu conexión.<br><small>${esc(err.message)}</small></div>`; return; }
+  store.onAuth(user => {
+    state.user = user;
+    if (!user) { closeModal(); renderLogin(); return; }
+    state.ready = { gastos:false, fijos:false }; state.error = null;
+    renderShell(); render();
+    const onErr = err => { state.error = err.code === 'permission-denied'
+      ? `El usuario ${user.email} no está autorizado. Pide al administrador que lo agregue en la colección "usuarios" de Firebase.` : (err.message||String(err)); render(); };
+    store.watch('gastos', d => { state.gastos = d; state.ready.gastos = true; render(); }, onErr);
+    store.watch('fijos', d => { state.fijos = d; state.ready.fijos = true; render(); }, onErr);
+  });
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+</script>
+</body>
+</html>
