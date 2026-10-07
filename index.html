@@ -22,7 +22,7 @@
   --radius:12px; --shadow:0 1px 2px rgba(30,20,40,.05),0 4px 16px rgba(30,20,40,.05);
 }
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:15px;-webkit-font-smoothing:antialiased}
+html,body{margin:0;overflow-x:hidden;-webkit-text-size-adjust:100%;text-size-adjust:100%;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:15px;-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 .hidden{display:none!important}
@@ -184,6 +184,11 @@ textarea.input{resize:vertical;min-height:60px}
 /* ---------- Responsive ---------- */
 @media (max-width:1100px){.kpis{grid-template-columns:repeat(2,1fr)}.dash-grid,.pp-grid{grid-template-columns:1fr}}
 @media (max-width:899px){
+  .input,select.input,textarea.input,.filters .input{font-size:16px}
+  input[type=date].input,input[type=month].input{-webkit-appearance:none;appearance:none;display:block;text-align:left;line-height:22px}
+  input[type=date]::-webkit-date-and-time-value{text-align:left}
+  .seg span{padding:8px 6px;font-size:13px}
+  .page-head select.input{width:100%!important}
   .app{grid-template-columns:1fr}
   .side{display:none}
   .topbar{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:10px 16px;padding-top:max(10px,env(safe-area-inset-top))}
@@ -247,6 +252,8 @@ const firebaseConfig = {
 /* Listas editables */
 const CENTROS = ['Fábrica Helados','Fábrica Pasteles','Local Antonio Varas','Local La Compañía','Oficina'];
 const CATEGORIAS = ['Materia prima','Insumos y envases','Arriendo','Luz','Agua','Gas','Internet y telefonía','Mantención y reparaciones','Transporte y combustible','Limpieza y aseo','Marketing','Servicios profesionales','Impuestos y patentes','Otros'];
+const CENTS = () => state.listas?.centros?.length ? state.listas.centros : CENTROS;
+const CATS = () => state.listas?.categorias?.length ? state.listas.categorias : CATEGORIAS;
 const TIPOS = {factura:'Factura', boleta:'Boleta', otro:'Otro'};
 const PAGOS = {transferencia:'Transferencia', efectivo:'Efectivo', tarjeta:'Tarjeta', credito:'Crédito'};
 const MEDIOS_PAGO_CREDITO = {transferencia:'Transferencia', efectivo:'Efectivo', cheque:'Cheque', tarjeta:'Tarjeta'};
@@ -290,6 +297,7 @@ const I = {
   x:'<path d="M18 6 6 18M6 6l12 12"/>',
   dl:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
   cam:'<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',
+  tag:'<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><path d="M7.5 7.5h.01"/>',
   clip:'<path d="m21.4 11-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/>',
 };
 const ic = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${I[k]}</svg>`;
@@ -455,7 +463,7 @@ function renderLogin(msg=''){
 }
 
 const NAV = [
-  ['dashboard','Resumen','home'], ['gastos','Gastos','list'], ['porpagar','Por pagar','clock'], ['fijos','Gastos fijos','repeat'] ];
+  ['dashboard','Resumen','home'], ['gastos','Gastos','list'], ['porpagar','Por pagar','clock'], ['fijos','Gastos fijos','repeat'], ['ajustes','Categorías','tag'] ];
 
 function renderShell(){
   root.innerHTML = `
@@ -469,7 +477,7 @@ function renderShell(){
     </aside>
     <div>
       <header class="topbar"><img src="logo.png" alt=""><b id="topTitle">Resumen</b>
-        <button class="x" data-act="logout" title="Cerrar sesión">${ic('out')}</button></header>
+        <button class="x" data-nav="ajustes" title="Categorías y centros">${ic('tag')}</button><button class="x" data-act="logout" title="Cerrar sesión">${ic('out')}</button></header>
       <main class="main">${DEMO ? `<div class="demo-bar"><b>Modo demo:</b> datos de ejemplo guardados solo en este navegador. Configura Firebase (ver LEEME) para usarla de verdad en todos los dispositivos.</div>` : ''}<div id="view"></div></main>
     </div>
     <nav class="bottomnav">
@@ -497,7 +505,7 @@ function render(){
   const v = $('#view');
   if (state.error) { v.innerHTML = `<div class="card card-b" style="padding:24px"><h3>No tienes acceso</h3><p class="note">${esc(state.error)}</p></div>`; return; }
   if (!state.ready.gastos || !state.ready.fijos) { v.innerHTML = '<div class="empty">Cargando datos…</div>'; return; }
-  ({ dashboard:viewDashboard, gastos:viewGastos, porpagar:viewPorPagar, fijos:viewFijos })[state.view](v);
+  ({ dashboard:viewDashboard, gastos:viewGastos, porpagar:viewPorPagar, fijos:viewFijos, ajustes:viewAjustes })[state.view](v);
 }
 
 /* ---------- Dashboard ---------- */
@@ -601,8 +609,8 @@ function viewGastos(v){
   <div class="filters">
     <input class="input search" data-f="q" placeholder="Buscar proveedor, N°, descripción…" value="${esc(f.q)}">
     <select class="input" data-f="mes">${monthOptions(f.mes, true)}</select>
-    ${sel('centro', CENTROS.map(c=>[c,c]), 'Todos los centros')}
-    ${sel('cat', CATEGORIAS.map(c=>[c,c]), 'Todas las categorías')}
+    ${sel('centro', CENTS().map(c=>[c,c]), 'Todos los centros')}
+    ${sel('cat', CATS().map(c=>[c,c]), 'Todas las categorías')}
     ${sel('tipo', Object.entries(TIPOS), 'Todo tipo de doc.')}
     ${sel('pago', Object.entries(PAGOS), 'Toda forma de pago')}
   </div>
@@ -682,6 +690,53 @@ function viewFijos(v){
   </div>`;
 }
 
+
+/* ---------- Categorías y centros ---------- */
+function viewAjustes(v){
+  const uso = (campo, n) => state.gastos.filter(g => g[campo] === n).length + state.fijos.filter(f => f[campo] === n).length;
+  const block = (tipo, titulo, sub, list, campo) => `
+    <div class="card"><div class="card-h"><div><h3>${titulo}</h3><div class="note">${sub}</div></div></div>
+      <div class="card-b">
+        <form class="list-add" data-tipo="${tipo}" style="display:flex;gap:8px;margin:6px 0 10px">
+          <input class="input" name="nombre" placeholder="${tipo==='centro'?'Nuevo centro de costo':'Nueva categoría'}" autocomplete="off">
+          <button class="btn btn-primary">${ic('plus')} Agregar</button></form>
+        ${list.map(n => { const u = uso(campo, n); return `
+          <div class="hbar" style="border-top:1px solid var(--border)">
+            <div class="n">${esc(n)}<div class="note">${u ? `${u} registro${u===1?'':'s'}` : 'Sin uso'}</div></div>
+            <div style="display:flex;gap:4px">
+              <button class="btn btn-sm btn-ghost" data-ren="${tipo}" data-n="${esc(n)}">Renombrar</button>
+              <button class="btn btn-sm btn-ghost" style="color:var(--red)" data-delitem="${tipo}" data-n="${esc(n)}">Eliminar</button></div>
+          </div>`; }).join('')}
+      </div></div>`;
+  v.innerHTML = `
+  <div class="page-head"><div><h2>Categorías y centros de costo</h2><div class="sub">Agrega, renombra o elimina las opciones que aparecen al registrar gastos</div></div></div>
+  <div class="dash-grid">
+    ${block('categoria','Categorías','Tipos de gasto: materia prima, arriendo, luz…', CATS(), 'categoria')}
+    ${block('centro','Centros de costo','Fábricas, locales y oficina', CENTS(), 'centro')}
+  </div>`;
+  v.querySelectorAll('.list-add').forEach(f => f.onsubmit = async e => { e.preventDefault();
+    const n = f.nombre.value.trim(); if (!n) return;
+    try { const r = await addToList(f.dataset.tipo, n); toast(`"${r}" agregada ✓`); render(); } catch (err) { toast('No se pudo guardar: ' + (err.code||err.message)); } });
+  v.querySelectorAll('[data-ren]').forEach(b => b.onclick = async () => {
+    const tipo = b.dataset.ren, old = b.dataset.n, campo = tipo, nuevo = (prompt('Nuevo nombre:', old) || '').trim();
+    if (!nuevo || nuevo === old) return;
+    const cats = CATS().map(x => tipo==='categoria' && x === old ? nuevo : x), cens = CENTS().map(x => tipo==='centro' && x === old ? nuevo : x);
+    try {
+      await saveListas([...new Set(cats)], [...new Set(cens)]);
+      const gs = state.gastos.filter(g => g[campo] === old), fs = state.fijos.filter(f => f[campo] === old);
+      await Promise.all([...gs.map(g => store.update('gastos', g.id, { [campo]:nuevo })), ...fs.map(f => store.update('fijos', f.id, { [campo]:nuevo }))]);
+      toast(`Renombrada ✓ (${gs.length + fs.length} registros actualizados)`); render();
+    } catch (err) { toast('No se pudo renombrar: ' + (err.code||err.message)); }
+  });
+  v.querySelectorAll('[data-delitem]').forEach(b => b.onclick = async () => {
+    const tipo = b.dataset.delitem, n = b.dataset.n, list = tipo === 'centro' ? CENTS() : CATS();
+    if (list.length <= 1) return toast('Debe quedar al menos una');
+    if (!confirm(`¿Eliminar "${n}" de la lista?\nLos gastos ya registrados con este nombre no se borran.`)) return;
+    try { await saveListas(tipo==='categoria' ? list.filter(x => x !== n) : CATS(), tipo==='centro' ? list.filter(x => x !== n) : CENTS()); toast('Eliminada ✓'); render(); }
+    catch (err) { toast('No se pudo eliminar: ' + (err.code||err.message)); }
+  });
+}
+
 /* ================================================================
    6) FORMULARIOS / MODALES
    ================================================================ */
@@ -701,7 +756,35 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
 function toast(msg){ $('.toast')?.remove(); const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2800); }
 
 const seg = (name, opts, val) => `<div class="seg">${Object.entries(opts).map(([k,l]) => `<label><input type="radio" name="${name}" value="${k}" ${k===val?'checked':''}><span>${l}</span></label>`).join('')}</div>`;
-const selOpts = (opts, val) => opts.map(o => `<option ${o===val?'selected':''}>${esc(o)}</option>`).join('');
+const selOpts = (opts, val, addLabel) => { const list = val && !opts.includes(val) ? [...opts, val] : opts;
+  return list.map(o => `<option ${o===val?'selected':''}>${esc(o)}</option>`).join('') + (addLabel ? `<option value="__new">＋ ${addLabel}</option>` : ''); };
+
+/* Listas editables (se guardan en Firebase como fijos/_listas) */
+async function saveListas(categorias = CATS(), centros = CENTS()){
+  state.listas = { categorias:[...categorias], centros:[...centros] };
+  await store.set('fijos', '_listas', state.listas);
+}
+async function addToList(tipo, nombre){
+  nombre = (nombre||'').trim(); if (!nombre) return null;
+  const key = tipo === 'centro' ? 'centros' : 'categorias', cur = tipo === 'centro' ? CENTS() : CATS();
+  const ex = cur.find(x => x.toLowerCase() === nombre.toLowerCase()); if (ex) return ex;
+  await saveListas(key === 'categorias' ? [...cur, nombre] : CATS(), key === 'centros' ? [...cur, nombre] : CENTS());
+  return nombre;
+}
+function wireAddNew(form){
+  [['categoria','categoría','Agregar categoría…'],['centro','centro de costo','Agregar centro…']].forEach(([name, label, addLabel]) => {
+    const sel = form[name]; if (!sel) return; let prev = sel.value;
+    sel.addEventListener('focus', () => { prev = sel.value; });
+    sel.addEventListener('change', async () => {
+      if (sel.value !== '__new') { prev = sel.value; return; }
+      const nombre = prompt(`Nombre de la nueva ${label}:`);
+      if (!nombre || !nombre.trim()) { sel.value = prev; return; }
+      try { const v = await addToList(name, nombre);
+        sel.innerHTML = selOpts(name === 'centro' ? CENTS() : CATS(), v, addLabel); sel.value = v; prev = v; toast(`"${v}" agregada ✓`); }
+      catch (err) { sel.value = prev; toast('No se pudo guardar: ' + (err.code||err.message)); }
+    });
+  });
+}
 
 function provDatalist(){
   const m = {}; state.gastos.forEach(g => { if (g.proveedor) m[g.proveedor] = m[g.proveedor] || g.rut || ''; });
@@ -711,7 +794,7 @@ function provDatalist(){
 
 function gastoForm(g = {}){
   const isNew = !g.id;
-  g = { tipoDoc:'factura', fecha:today(), formaPago:'transferencia', centro:CENTROS[0], categoria:CATEGORIAS[0], estado:'pagado', ...g };
+  g = { tipoDoc:'factura', fecha:today(), formaPago:'transferencia', centro:CENTS()[0], categoria:CATS()[0], estado:'pagado', ...g };
   const fijo = g.fijoId && state.fijos.find(f => f.id === g.fijoId);
   const body = `
     ${fijo ? `<div class="box note">Pago de gasto fijo: <b>${esc(fijo.nombre)}</b> — ${ymLabel(g.periodo)}</div>` : ''}
@@ -726,8 +809,8 @@ function gastoForm(g = {}){
     </div>
     ${provDatalist()}
     <div class="grid2">
-      <label class="field"><span>Centro de costo</span><select class="input" name="centro">${selOpts(CENTROS, g.centro)}</select></label>
-      <label class="field"><span>Categoría</span><select class="input" name="categoria">${selOpts(CATEGORIAS, g.categoria)}</select></label>
+      <label class="field"><span>Centro de costo</span><select class="input" name="centro">${selOpts(CENTS(), g.centro, 'Agregar centro…')}</select></label>
+      <label class="field"><span>Categoría</span><select class="input" name="categoria">${selOpts(CATS(), g.categoria, 'Agregar categoría…')}</select></label>
     </div>
     <label class="field"><span>Descripción (opcional)</span><input class="input" name="descripcion" value="${esc(g.descripcion||'')}" placeholder="Qué se compró"></label>
     <div class="grid2">
@@ -760,6 +843,7 @@ function gastoForm(g = {}){
   const foot = `${!isNew ? `<button type="button" class="btn btn-danger" id="del">Eliminar</button>` : ''}<span class="spacer"></span>
     <button type="button" class="btn" data-close2>Cancelar</button><button class="btn btn-primary">${isNew?'Guardar gasto':'Guardar cambios'}</button>`;
   const form = openModal(isNew ? 'Nuevo gasto' : 'Editar gasto', body, foot);
+  wireAddNew(form);
   form.querySelector('[data-close2]').onclick = closeModal;
   let fotoData = null;
 
@@ -806,6 +890,7 @@ function gastoForm(g = {}){
   form.onsubmit = async e => {
     e.preventDefault();
     const fd = new FormData(form), total = parseMonto(fd.get('total')), tipo = fd.get('tipoDoc'), pago = fd.get('formaPago');
+    if (fd.get('categoria') === '__new' || fd.get('centro') === '__new') return toast('Elige una categoría y centro');
     if (!fd.get('proveedor').trim()) return toast('Falta el proveedor');
     if (!total) return toast('Falta el monto');
     if (!fd.get('fecha')) return toast('Falta la fecha');
@@ -849,12 +934,12 @@ function payForm(g){
 
 function fijoForm(f = {}){
   const isNew = !f.id;
-  f = { categoria:'Arriendo', centro:CENTROS[0], dia:5, avisarDias:5, tipoDoc:'factura', activo:true, desde:curYM(), ...f };
+  f = { categoria:CATS().includes('Arriendo')?'Arriendo':CATS()[0], centro:CENTS()[0], dia:5, avisarDias:5, tipoDoc:'factura', activo:true, desde:curYM(), ...f };
   const body = `
     <label class="field"><span>Nombre</span><input class="input" name="nombre" value="${esc(f.nombre||'')}" placeholder="Ej: Arriendo Local Antonio Varas" required></label>
     <div class="grid2">
-      <label class="field"><span>Categoría</span><select class="input" name="categoria">${selOpts(CATEGORIAS, f.categoria)}</select></label>
-      <label class="field"><span>Centro de costo</span><select class="input" name="centro">${selOpts(CENTROS, f.centro)}</select></label>
+      <label class="field"><span>Categoría</span><select class="input" name="categoria">${selOpts(CATS(), f.categoria, 'Agregar categoría…')}</select></label>
+      <label class="field"><span>Centro de costo</span><select class="input" name="centro">${selOpts(CENTS(), f.centro, 'Agregar centro…')}</select></label>
     </div>
     <label class="field"><span>Proveedor / arrendador</span><input class="input" name="proveedor" list="provs" value="${esc(f.proveedor||'')}" autocomplete="off"></label>${provDatalist()}
     <div class="grid2">
@@ -872,6 +957,7 @@ function fijoForm(f = {}){
   const foot = `${!isNew ? `<button type="button" class="btn btn-danger" id="del">Eliminar</button>` : ''}<span class="spacer"></span>
     <button type="button" class="btn" data-close2>Cancelar</button><button class="btn btn-primary">Guardar</button>`;
   const form = openModal(isNew ? 'Nuevo gasto fijo' : 'Editar gasto fijo', body, foot);
+  wireAddNew(form);
   form.querySelector('[data-close2]').onclick = closeModal;
   form.monto.addEventListener('input', () => { const n = parseMonto(form.monto.value); form.monto.value = n ? n.toLocaleString('es-CL') : ''; });
   $('#del', form)?.addEventListener('click', async () => { if (!confirm('¿Eliminar este gasto fijo? Los pagos ya registrados se mantienen.')) return; await store.remove('fijos', f.id); closeModal(); toast('Gasto fijo eliminado'); });
@@ -934,9 +1020,10 @@ document.addEventListener('click', e => {
     state.ready = { gastos:false, fijos:false }; state.error = null;
     renderShell(); render();
     const onErr = err => { state.error = err.code === 'permission-denied'
-      ? `El usuario ${user.email} no está autorizado. Pide al administrador que lo agregue en la colección "usuarios" de Firebase.` : (err.message||String(err)); render(); };
+      ? `El usuario ${user.email} no está autorizado. Pide al administrador que agregue este correo en las reglas de Firestore.` : (err.message||String(err)); render(); };
     store.watch('gastos', d => { state.gastos = d; state.ready.gastos = true; render(); }, onErr);
-    store.watch('fijos', d => { state.fijos = d; state.ready.fijos = true; render(); }, onErr);
+    store.watch('fijos', d => { const l = d.find(x => x.id === '_listas'); state.listas = l ? { categorias:l.categorias||[], centros:l.centros||[] } : null;
+      state.fijos = d.filter(x => !String(x.id).startsWith('_')); state.ready.fijos = true; render(); }, onErr);
   });
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
