@@ -159,7 +159,7 @@ textarea.input{resize:vertical;min-height:60px}
 .r-sub{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
 .r-date{font-size:13px;color:var(--muted)}
 .r-amt{text-align:right;font-weight:600}
-.row-pp{grid-template-columns:minmax(0,1fr) 130px 120px 92px}
+.row-pp{grid-template-columns:minmax(0,1fr) 150px 120px 120px}
 .group-h{padding:12px 16px 8px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);display:flex;justify-content:space-between;background:var(--surface-2);border-bottom:1px solid var(--border)}
 .group-h.red{color:var(--red)} .group-h.amber{color:var(--amber)}
 .pp-grid{display:grid;grid-template-columns:1fr 320px;gap:14px;align-items:start}
@@ -316,7 +316,7 @@ const ic = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
 /* ================================================================
    3) CAPA DE DATOS (Firebase o demo local)
    ================================================================ */
-const state = { user:null, gastos:[], fijos:[], view:'dashboard', dashMes:curYM(), sueldoMes:curYM(), sbMes:curYM(),
+const state = { user:null, gastos:[], fijos:[], view:'dashboard', dashMes:curYM(), dashCentro:'', sueldoMes:curYM(), sbMes:curYM(),
   f:{ mes:curYM(), centro:'', cat:'', tipo:'', pago:'', q:'' }, ready:{gastos:false,fijos:false}, error:null };
 
 let store;
@@ -423,6 +423,21 @@ function seedDemo(){
 /* ================================================================
    4) LÓGICA DE NEGOCIO
    ================================================================ */
+/* Períodos: 'YYYY-MM' (mes) o 'w:YYYY-MM-DD' (semana que parte el lunes) */
+const weekStart = d => { const x = parseD(d); const wd = (x.getDay() + 6) % 7; x.setDate(x.getDate() - wd); return ymd(x); };
+const isWeek = p => String(p).startsWith('w:');
+const inPeriod = (fecha, p) => { if (!p || p === 'todos') return true; fecha = fecha || '';
+  if (isWeek(p)) { const ws = p.slice(2); return fecha >= ws && fecha <= addDays(ws, 6); } return fecha.startsWith(p); };
+const prevPeriod = (p, n = -1) => isWeek(p) ? 'w:' + addDays(p.slice(2), 7*n) : shiftYM(p, n);
+const weekLabel = ws => { const we = addDays(ws, 6), [, m1, d1] = ws.split('-').map(Number), [, m2, d2] = we.split('-').map(Number);
+  return m1 === m2 ? `${pad(d1)}–${pad(d2)} ${MES3[m2-1]}` : `${pad(d1)} ${MES3[m1-1]}–${pad(d2)} ${MES3[m2-1]}`; };
+const periodLabel = p => p === 'todos' ? 'todos los meses' : isWeek(p) ? 'semana ' + weekLabel(p.slice(2)) : ymLabel(p);
+const periodShort = p => isWeek(p) ? pad(Number(p.slice(10))) + ' ' + MES3[Number(p.slice(7,9))-1] : MES3[Number(p.slice(5))-1];
+const gastosPeriodo = (p, centro) => state.gastos.filter(g => inPeriod(g.fecha, p) && (!centro || g.centro === centro));
+/* Abonos a facturas a crédito */
+const abonado = g => (g.abonos||[]).reduce((a,x) => a + (Number(x.monto)||0), 0);
+const saldo = g => g.formaPago === 'credito' && g.estado !== 'pagado' ? Math.max(0, (Number(g.total)||0) - abonado(g)) : 0;
+const sumSaldo = arr => arr.reduce((a,g) => a + saldo(g), 0);
 const gastosMes = ym => state.gastos.filter(g => (g.fecha||'').startsWith(ym));
 const pendientes = () => state.gastos.filter(g => g.formaPago === 'credito' && g.estado !== 'pagado')
   .sort((a,b) => (a.vencimiento||'9').localeCompare(b.vencimiento||'9'));
@@ -531,52 +546,63 @@ function render(){
 
 /* ---------- Dashboard ---------- */
 function viewDashboard(v){
-  const ym = state.dashMes, g = gastosMes(ym), total = sum(g), prev = sum(gastosMes(shiftYM(ym,-1)));
-  const pend = pendientes(), t = today(), venc = pend.filter(x => x.vencimiento && x.vencimiento < t);
-  const al = alertas();
-  const fijosAct = state.fijos.filter(f => f.activo !== false && (!f.desde || f.desde <= ym));
+  const P = state.dashMes, C = state.dashCentro, wk = isWeek(P);
+  const ym = wk ? P.slice(2,9) : P;
+  const g = gastosPeriodo(P, C), total = sum(g), prev = sum(gastosPeriodo(prevPeriod(P), C));
+  const t = today(), pend = pendientes().filter(x => !C || x.centro === C), venc = pend.filter(x => x.vencimiento && x.vencimiento < t);
+  const al = alertas().filter(a => !C || (a.tipo === 'fijo' ? a.f.centro : a.g.centro) === C);
+  const fijosAct = state.fijos.filter(f => f.activo !== false && (!f.desde || f.desde <= ym) && (!C || f.centro === C));
   const fijosPag = fijosAct.filter(f => fijoPagado(f, ym));
   const delta = prev ? Math.round((total - prev) / prev * 100) : null;
-
-  const months = Array.from({length:6}, (_,i) => shiftYM(ym, i-5));
-  const mt = months.map(m => sum(gastosMes(m))), max = Math.max(...mt, 1);
-
+  const periods = Array.from({length: wk ? 8 : 6}, (_,i) => prevPeriod(P, i - (wk ? 7 : 5)));
+  const mt = periods.map(p => sum(gastosPeriodo(p, C))), max = Math.max(...mt, 1);
   const byKey = (k, list) => { const o = {}; g.forEach(x => { const key = x[k] || 'Sin asignar'; o[key] = (o[key]||0) + (Number(x.total)||0); });
     let e = Object.entries(o).sort((a,b) => b[1]-a[1]); if (list) { const rest = e.slice(list); e = e.slice(0,list); if (rest.length) e.push(['Otras', rest.reduce((a,x)=>a+x[1],0)]); } return e; };
   const hbars = (entries, color) => entries.length ? entries.map(([n,a]) => `
     <div class="hbar"><div class="n">${esc(n)}</div><div class="a num">${clp(a)}<span class="p">${total?Math.round(a/total*100):0}%</span></div>
-    <div class="track"><div class="fill" style="width:${total?a/entries[0][1]*100:0}%;background:${color}"></div></div></div>`).join('') : '<div class="empty">Sin gastos este mes</div>';
+    <div class="track"><div class="fill" style="width:${total?a/entries[0][1]*100:0}%;background:${color}"></div></div></div>`).join('') : '<div class="empty">Sin gastos en este período</div>';
   const pagos = Object.keys(PAGOS).map(k => [k, sum(g.filter(x => x.formaPago === k))]);
+  // por semana dentro del mes (solo vista mensual)
+  let semanas = '';
+  if (!wk) { const ws0 = weekStart(P + '-01'), lastDay = addDays(shiftYM(P,1) + '-01', -1), rows = [];
+    for (let w = ws0; w <= lastDay; w = addDays(w, 7)) { const list = g.filter(x => x.fecha >= w && x.fecha <= addDays(w,6)); rows.push([w, sum(list), list.length]); }
+    const mx = Math.max(...rows.map(r => r[1]), 1);
+    semanas = `<div class="card"><div class="card-h"><h3>Por semana · ${ymLabel(P)}</h3></div><div class="card-b">${rows.map(([w,a,n]) => `
+      <div class="hbar" style="cursor:pointer" data-mes="w:${w}"><div class="n">${weekLabel(w)} <span class="note">· ${n} doc.</span></div><div class="a num">${clp(a)}</div>
+      <div class="track"><div class="fill" style="width:${a/mx*100}%;background:var(--brand-2)"></div></div></div>`).join('')}</div></div>`; }
 
   v.innerHTML = `
   <div class="page-head">
-    <div><h2>Resumen de gastos</h2><div class="sub">Gastos registrados por fecha de documento</div></div>
-    <select class="input" id="dashMes" style="width:auto">${monthOptions(ym)}</select>
+    <div><h2>Resumen de gastos</h2><div class="sub">${C ? esc(C) + ' · ' : ''}Gastos por fecha de documento</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><select class="input" id="dashMes" style="width:auto">${periodOptions(P)}</select>${centroSelect('dashCentro', C)}</div>
   </div>
   ${al.length ? `<div class="alerts">${al.slice(0,4).map(alertHTML).join('')}${al.length>4?`<button class="btn btn-sm" style="justify-self:start" data-nav="porpagar">Ver ${al.length-4} alerta${al.length-4===1?'':'s'} más</button>`:''}</div>` : ''}
   <div class="kpis">
-    <div class="card kpi"><div class="l">Gasto de ${MESES[Number(ym.slice(5))-1]}</div><div class="v num">${clp(total)}</div>
-      <div class="d">${delta === null ? `${g.length} documentos` : `<span class="${delta>0?'up':'down'}">${delta>0?'▲':'▼'} ${Math.abs(delta)}%</span> vs mes anterior`}</div></div>
-    <div class="card kpi"><div class="l">Facturas por pagar</div><div class="v num">${clp(sum(pend))}</div><div class="d">${pend.length} factura${pend.length===1?'':'s'} a crédito</div></div>
-    <div class="card kpi ${venc.length?'kpi-red':''}"><div class="l">Vencido</div><div class="v num">${clp(sum(venc))}</div><div class="d">${venc.length ? `${venc.length} factura${venc.length===1?'':'s'} vencida${venc.length===1?'':'s'}` : 'Nada vencido 👍'}</div></div>
-    <div class="card kpi"><div class="l">Gastos fijos del mes</div><div class="v num">${fijosPag.length} / ${fijosAct.length}</div><div class="d">pagados · ${clp(fijosAct.filter(f=>!fijoPagado(f,ym)).reduce((a,f)=>a+Number(f.monto||0),0))} por pagar</div></div>
+    <div class="card kpi"><div class="l">Gasto ${wk ? 'semana ' + weekLabel(P.slice(2)) : 'de ' + MESES[Number(P.slice(5))-1]}</div><div class="v num">${clp(total)}</div>
+      <div class="d">${delta === null ? `${g.length} documentos` : `<span class="${delta>0?'up':'down'}">${delta>0?'▲':'▼'} ${Math.abs(delta)}%</span> vs ${wk?'semana':'mes'} anterior`}</div></div>
+    <div class="card kpi"><div class="l">Facturas por pagar</div><div class="v num">${clp(sumSaldo(pend))}</div><div class="d">${pend.length} factura${pend.length===1?'':'s'} a crédito</div></div>
+    <div class="card kpi ${venc.length?'kpi-red':''}"><div class="l">Vencido</div><div class="v num">${clp(sumSaldo(venc))}</div><div class="d">${venc.length ? `${venc.length} factura${venc.length===1?'':'s'} vencida${venc.length===1?'':'s'}` : 'Nada vencido 👍'}</div></div>
+    <div class="card kpi"><div class="l">Gastos fijos de ${MESES[Number(ym.slice(5))-1]}</div><div class="v num">${fijosPag.length} / ${fijosAct.length}</div><div class="d">pagados · ${clp(fijosAct.filter(f=>!fijoPagado(f,ym)).reduce((a,f)=>a+Number(f.monto||0),0))} por pagar</div></div>
   </div>
   <div class="dash-grid">
-    <div class="card"><div class="card-h"><h3>Últimos 6 meses</h3></div>
-      <div class="card-b"><div class="bars">${months.map((m,i) => `
-        <button class="bar ${m===ym?'sel':''}" data-mes="${m}"><span class="val num">${mt[i]?short(mt[i]):''}</span>
-        <div class="col" style="height:${mt[i]/max*130}px"></div><span class="lab">${MES3[Number(m.slice(5))-1]}</span></button>`).join('')}</div></div></div>
-    <div class="card"><div class="card-h"><h3>Por centro de costo</h3></div><div class="card-b">${hbars(byKey('centro'), 'var(--brand)')}</div></div>
-    <div class="card"><div class="card-h"><h3>Por categoría</h3><button class="link" data-goto-gastos="${ym}">Ver detalle</button></div><div class="card-b">${hbars(byKey('categoria',6), 'var(--orange)')}</div></div>
+    <div class="card"><div class="card-h"><h3>${wk ? 'Últimas 8 semanas' : 'Últimos 6 meses'}</h3></div>
+      <div class="card-b"><div class="bars">${periods.map((p,i) => `
+        <button class="bar ${p===P?'sel':''}" data-mes="${p}"><span class="val num">${mt[i]?short(mt[i]):''}</span>
+        <div class="col" style="height:${mt[i]/max*130}px"></div><span class="lab">${periodShort(p)}</span></button>`).join('')}</div></div></div>
+    ${C ? semanas || `<div class="card"><div class="card-h"><h3>Por centro de costo</h3></div><div class="card-b">${hbars(byKey('centro'), 'var(--brand)')}</div></div>`
+        : `<div class="card"><div class="card-h"><h3>Por local / centro de costo</h3></div><div class="card-b">${hbars(byKey('centro'), 'var(--brand)')}</div></div>`}
+    <div class="card"><div class="card-h"><h3>Por categoría</h3><button class="link" data-goto-gastos="${P}">Ver detalle</button></div><div class="card-b">${hbars(byKey('categoria',6), 'var(--orange)')}</div></div>
     <div class="card"><div class="card-h"><h3>Forma de pago</h3></div><div class="card-b"><div class="pays">${pagos.map(([k,a]) => `
       <div class="pay"><div class="l"><i style="background:${PAGO_COLOR[k]}"></i>${PAGOS[k]}</div><div class="v num">${clp(a)}</div></div>`).join('')}</div>
       <div class="card-h" style="padding:16px 0 4px"><h3>Próximos vencimientos</h3><button class="link" data-nav="porpagar">Ver todo</button></div>
       ${pend.slice(0,5).map(x => { const d = diffDays(x.vencimiento||t, t); return `
-        <div class="hbar" style="cursor:pointer" data-edit="${x.id}"><div class="n">${esc(x.proveedor)} <span class="note">· N° ${esc(x.numero||'s/n')}</span></div><div class="a num">${clp(x.total)}</div>
-        <div style="grid-column:1/-1"><span class="pill ${d<0?'red':d<=AVISO_FACTURAS_DIAS?'amber':'gray'}">${fdate(x.vencimiento)} · ${relDays(d)}</span></div></div>`; }).join('') || '<div class="empty">No hay facturas pendientes</div>'}
+        <div class="hbar" style="cursor:pointer" data-edit="${x.id}"><div class="n">${esc(x.proveedor)} <span class="note">· N° ${esc(x.numero||'s/n')}</span></div><div class="a num">${clp(saldo(x))}</div>
+        <div style="grid-column:1/-1"><span class="pill ${d<0?'red':d<=AVISO_FACTURAS_DIAS?'amber':'gray'}">${fdate(x.vencimiento)} · ${relDays(d)}</span>${abonado(x)?` <span class="pill blue">abonado ${clp(abonado(x))}</span>`:''}</div></div>`; }).join('') || '<div class="empty">No hay facturas pendientes</div>'}
     </div></div>
+    ${!C && semanas ? semanas : ''}
   </div>`;
   $('#dashMes').onchange = e => { state.dashMes = e.target.value; render(); };
+  $('#dashCentro').onchange = e => { state.dashCentro = e.target.value; render(); };
 }
 
 function alertHTML(a){
@@ -584,22 +610,28 @@ function alertHTML(a){
   const title = isF ? `${esc(a.f.nombre)} · ${ymLabel(a.ym)}` : `Factura N° ${esc(a.g.numero||'s/n')} · ${esc(a.g.proveedor)}`;
   return `<div class="alert ${a.nivel}"><div class="ico">${ic(a.nivel==='red'?'alert':'bell')}</div>
     <div class="t"><b>${title}</b><small>${isF?'Gasto fijo':'Factura a crédito'} · ${relDays(a.d)} (${fdate(a.due)})</small></div>
-    <div class="amt num">${clp(isF ? a.f.monto : a.g.total)}</div>
-    ${isF ? `<button class="btn btn-sm" data-pay-fijo="${a.f.id}" data-ym="${a.ym}">Registrar pago</button>` : `<button class="btn btn-sm" data-pay="${a.g.id}">Marcar pagada</button>`}</div>`;
+    <div class="amt num">${clp(isF ? a.f.monto : saldo(a.g))}</div>
+    ${isF ? `<button class="btn btn-sm" data-pay-fijo="${a.f.id}" data-ym="${a.ym}">Registrar pago</button>` : `<button class="btn btn-sm" data-pay="${a.g.id}">Pagar / abonar</button>`}</div>`;
 }
 
-function monthOptions(sel, withAll){
+function periodOptions(sel, withAll){
+  const t = today(), cw = weekStart(t);
   const ms = new Set([curYM(), ...state.gastos.map(g => (g.fecha||'').slice(0,7)).filter(Boolean)]);
-  if (sel && sel !== 'todos') ms.add(sel);
-  return (withAll ? `<option value="todos" ${sel==='todos'?'selected':''}>Todos los meses</option>` : '') +
-    [...ms].sort().reverse().map(m => `<option value="${m}" ${m===sel?'selected':''}>${ymLabel(m).replace(/^./, c=>c.toUpperCase())}</option>`).join('');
+  if (sel && sel !== 'todos' && !isWeek(sel)) ms.add(sel);
+  const weeks = Array.from({length:12}, (_,i) => 'w:' + addDays(cw, -7*i));
+  if (isWeek(sel) && !weeks.includes(sel)) weeks.push(sel);
+  const o = (v, l) => `<option value="${v}" ${v===sel?'selected':''}>${l}</option>`;
+  return (withAll ? o('todos', 'Todos los meses') : '') +
+    `<optgroup label="Por mes">${[...ms].sort().reverse().map(m => o(m, ymLabel(m).replace(/^./, c=>c.toUpperCase()))).join('')}</optgroup>` +
+    `<optgroup label="Por semana">${weeks.map((w,i) => o(w, (i===0?'Esta semana · ':i===1?'Semana pasada · ':'Semana ') + weekLabel(w.slice(2)))).join('')}</optgroup>`;
 }
+const centroSelect = (id, val, allLabel = 'Todos los locales') => `<select class="input" id="${id}" style="width:auto"><option value="">${allLabel}</option>${CENTS().map(c => `<option ${c===val?'selected':''}>${esc(c)}</option>`).join('')}</select>`;
 
 /* ---------- Gastos ---------- */
 function filteredGastos(){
   const f = state.f, q = f.q.trim().toLowerCase();
   return state.gastos.filter(g =>
-    (f.mes === 'todos' || (g.fecha||'').startsWith(f.mes)) && (!f.centro || g.centro === f.centro) && (!f.cat || g.categoria === f.cat) &&
+    inPeriod(g.fecha, f.mes) && (!f.centro || g.centro === f.centro) && (!f.cat || g.categoria === f.cat) &&
     (!f.tipo || g.tipoDoc === f.tipo) && (!f.pago || g.formaPago === f.pago) &&
     (!q || [g.proveedor,g.numero,g.descripcion,g.rut].join(' ').toLowerCase().includes(q))
   ).sort((a,b) => (b.fecha||'').localeCompare(a.fecha||'') || (b.creadoEn||'').localeCompare(a.creadoEn||''));
@@ -609,7 +641,8 @@ function estadoPill(g){
   if (g.formaPago !== 'credito') return `<span class="pill ${g.formaPago==='efectivo'?'green':g.formaPago==='transferencia'?'blue':'gray'}">${PAGOS[g.formaPago]||'—'}</span>`;
   if (g.estado === 'pagado') return `<span class="pill green">Crédito · pagada</span>`;
   const d = g.vencimiento ? diffDays(g.vencimiento, today()) : 99;
-  return `<span class="pill ${d<0?'red':d<=AVISO_FACTURAS_DIAS?'amber':'purple'}">Crédito · ${d<0?'vencida':'pendiente'}</span>`;
+  const ab = abonado(g);
+  return `<span class="pill ${d<0?'red':d<=AVISO_FACTURAS_DIAS?'amber':'purple'}">Crédito · ${d<0?'vencida':ab?'con abono':'pendiente'}</span>`;
 }
 
 function rowSub(g){
@@ -634,7 +667,7 @@ function viewGastos(v){
     <div style="display:flex;gap:8px"><button class="btn" data-act="csv">${ic('dl')} Exportar</button><button class="btn btn-primary btn-desk" data-act="new">${ic('plus')} Nuevo gasto</button></div></div>
   <div class="filters">
     <input class="input search" data-f="q" placeholder="Buscar proveedor, N°, descripción…" value="${esc(f.q)}">
-    <select class="input" data-f="mes">${monthOptions(f.mes, true)}</select>
+    <select class="input" data-f="mes">${periodOptions(f.mes, true)}</select>
     ${sel('centro', CENTS().map(c=>[c,c]), 'Todos los centros')}
     ${sel('cat', CATS().map(c=>[c,c]), 'Todas las categorías')}
     ${sel('tipo', Object.entries(TIPOS), 'Todo tipo de doc.')}
@@ -659,28 +692,29 @@ function viewPorPagar(v){
     [`Vencen en los próximos ${AVISO_FACTURAS_DIAS} días`,'amber', pend.filter(g => g.vencimiento && g.vencimiento >= t && diffDays(g.vencimiento,t) <= AVISO_FACTURAS_DIAS)],
     ['Más adelante','', pend.filter(g => !g.vencimiento || diffDays(g.vencimiento,t) > AVISO_FACTURAS_DIAS)],
   ];
-  const porProv = {}; pend.forEach(g => { const k = g.proveedor||'Sin proveedor'; (porProv[k] ||= {n:0,t:0,v:0}); porProv[k].n++; porProv[k].t += Number(g.total)||0; if (g.vencimiento && g.vencimiento < t) porProv[k].v += Number(g.total)||0; });
+  const porProv = {}; pend.forEach(g => { const k = g.proveedor||'Sin proveedor'; (porProv[k] ||= {n:0,t:0,v:0}); porProv[k].n++; porProv[k].t += saldo(g); if (g.vencimiento && g.vencimiento < t) porProv[k].v += saldo(g); });
   const fp = fijosPendientes();
   v.innerHTML = `
   <div class="page-head"><div><h2>Facturas por pagar</h2><div class="sub">Facturas a crédito pendientes, ordenadas por vencimiento</div></div>
     <button class="btn btn-primary btn-desk" data-act="new">${ic('plus')} Nuevo gasto</button></div>
   <div class="pp-grid">
     <div class="card" style="overflow:hidden">
-      <div class="list-sum"><span>${pend.length} factura${pend.length===1?'':'s'} pendiente${pend.length===1?'':'s'}</span><span>Deuda total <b class="num">${clp(sum(pend))}</b></span></div>
+      <div class="list-sum"><span>${pend.length} factura${pend.length===1?'':'s'} pendiente${pend.length===1?'':'s'}</span><span>Deuda total <b class="num">${clp(sumSaldo(pend))}</b></span></div>
       ${pend.length ? groups.filter(gr => gr[2].length).map(([title,cls,list]) => `
-        <div class="group-h ${cls}"><span>${title}</span><span class="num">${clp(sum(list))}</span></div>
+        <div class="group-h ${cls}"><span>${title}</span><span class="num">${clp(sumSaldo(list))}</span></div>
         ${list.map(g => { const d = g.vencimiento ? diffDays(g.vencimiento,t) : null; return `
           <div class="row row-pp" data-edit="${g.id}">
             <div><div class="r-title">${esc(g.proveedor)}</div><div class="r-sub">Factura N° ${esc(g.numero||'s/n')} · ${esc(g.centro)} · emitida ${fdate(g.fecha)}</div></div>
             <div class="r-state"><span class="pill ${d===null?'gray':d<0?'red':d<=AVISO_FACTURAS_DIAS?'amber':'gray'}">${d===null?'Sin vencimiento':fdate(g.vencimiento)+' · '+relDays(d)}</span></div>
-            <div class="r-amt num">${clp(g.total)}</div>
-            <div class="r-act" style="text-align:right"><button class="btn btn-sm" data-pay="${g.id}">Pagar</button></div>
+            <div class="r-amt num">${clp(saldo(g))}${abonado(g) ? `<div class="note" style="font-weight:400">de ${clp(g.total)} · abonado ${clp(abonado(g))}</div>` : ''}</div>
+            <div class="r-act" style="text-align:right"><button class="btn btn-sm" data-pay="${g.id}">Pagar / abonar</button></div>
           </div>`; }).join('')}`).join('') : '<div class="empty">🎉 No hay facturas pendientes de pago</div>'}
     </div>
     <div style="display:grid;gap:14px">
       <div class="card"><div class="card-h"><h3>Deuda por proveedor</h3></div><div class="card-b">
         ${Object.entries(porProv).sort((a,b)=>b[1].t-a[1].t).map(([p,o]) => `
-          <div class="hbar"><div class="n">${esc(p)}<div class="note">${o.n} factura${o.n===1?'':'s'}${o.v?` · <span style="color:var(--red)">${clp(o.v)} vencido</span>`:''}</div></div><div class="a num">${clp(o.t)}</div></div>`).join('') || '<div class="empty">Sin deuda</div>'}
+          <div class="hbar"><div class="n">${esc(p)}<div class="note">${o.n} factura${o.n===1?'':'s'}${o.v?` · <span style="color:var(--red)">${clp(o.v)} vencido</span>`:''}</div></div>
+            <div class="a"><div class="num">${clp(o.t)}</div><button class="btn btn-sm" style="margin-top:4px" data-abprov="${esc(p)}">Abonar</button></div></div>`).join('') || '<div class="empty">Sin deuda</div>'}
       </div></div>
       <div class="card"><div class="card-h"><h3>Gastos fijos pendientes</h3><button class="link" data-nav="fijos">Ver fijos</button></div><div class="card-b">
         ${fp.map(x => `<div class="hbar"><div class="n">${esc(x.f.nombre)}<div class="note"><span class="pill ${x.nivel==='red'?'red':x.nivel==='amber'?'amber':'gray'}">${fdate(x.due)} · ${relDays(x.d)}</span></div></div>
@@ -688,6 +722,58 @@ function viewPorPagar(v){
       </div></div>
     </div>
   </div>`;
+  v.querySelectorAll('[data-abprov]').forEach(b => b.onclick = e => { e.stopPropagation(); abonoProveedorForm(b.dataset.abprov); });
+}
+
+/* Abono general a la cuenta de un proveedor: se reparte entre sus facturas pendientes */
+function abonoProveedorForm(prov){
+  const facs = pendientes().filter(g => (g.proveedor||'Sin proveedor') === prov)
+    .sort((a,b) => (a.vencimiento||a.fecha||'9').localeCompare(b.vencimiento||b.fecha||'9') || (a.fecha||'').localeCompare(b.fecha||''));
+  const deuda = sumSaldo(facs), t = today();
+  const body = `
+    <div class="box"><b>${esc(prov)}</b><div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px"><span class="note">${facs.length} factura${facs.length===1?'':'s'} pendiente${facs.length===1?'':'s'}</span><span class="num" style="font-size:22px;font-weight:700">${clp(deuda)}</span></div></div>
+    <label class="field"><span>Monto del abono</span><input class="input num" name="monto" inputmode="numeric" placeholder="$0" style="font-weight:600;font-size:17px"></label>
+    <label class="field"><span>¿A qué facturas se aplica?</span>${seg('modo', { antiguas:'A las más antiguas primero', elegir:'Elegir facturas' }, 'antiguas')}</label>
+    <div class="box" style="display:grid;gap:0;padding:4px 12px" id="facList">${facs.map((g,i) => { const d = g.vencimiento ? diffDays(g.vencimiento, t) : null; return `
+      <label style="display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;${i?'border-top:1px solid var(--border)':''}">
+        <input type="checkbox" data-fac="${g.id}" checked style="width:18px;height:18px">
+        <span style="min-width:0"><b style="font-size:13.5px">N° ${esc(g.numero||'s/n')}</b> <span class="note">· ${fdate(g.fecha)}</span><br>
+          <span class="pill ${d===null?'gray':d<0?'red':d<=AVISO_FACTURAS_DIAS?'amber':'gray'}">${d===null?'Sin vencimiento':'vence '+fdate(g.vencimiento)}</span></span>
+        <span style="text-align:right"><span class="num" style="font-weight:600">${clp(saldo(g))}</span><br><span class="note num" data-prev="${g.id}"></span></span>
+      </label>`; }).join('')}</div>
+    <div class="grid2">
+      <label class="field"><span>Fecha del abono</span><input class="input" type="date" name="fecha" value="${t}"></label>
+      <label class="field"><span>Pagado con</span><select class="input" name="medio">${Object.entries(MEDIOS_PAGO_CREDITO).map(([k,l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>
+    </div>
+    <div class="note" id="abInfo"></div>`;
+  const form = openModal('Abono a proveedor', body, `<span class="spacer"></span><button type="button" class="btn" data-close2>Cancelar</button><button class="btn btn-primary">Registrar abono</button>`);
+  form.querySelector('[data-close2]').onclick = closeModal;
+  const boxes = [...form.querySelectorAll('[data-fac]')];
+  const reparto = () => { let rest = parseMonto(form.monto.value); const elegir = form.modo.value === 'elegir', out = [];
+    facs.forEach(g => { const on = !elegir || boxes.find(b => b.dataset.fac === g.id).checked; const a = on ? Math.min(rest, saldo(g)) : 0; rest -= a; out.push([g, a]); });
+    return { out, sobra: rest }; };
+  const upd = () => { const elegir = form.modo.value === 'elegir';
+    boxes.forEach(b => { b.style.visibility = elegir ? 'visible' : 'hidden'; });
+    const { out, sobra } = reparto(), m = parseMonto(form.monto.value);
+    out.forEach(([g,a]) => { const el = form.querySelector(`[data-prev="${g.id}"]`); el.innerHTML = a ? `<span style="color:var(--green)">−${clp(a)}</span> → ${saldo(g)-a ? 'queda '+clp(saldo(g)-a) : '<b style="color:var(--green)">pagada</b>'}` : ''; });
+    const n = out.filter(([,a]) => a).length;
+    $('#abInfo', form).innerHTML = !m ? 'Escribe el monto para ver cómo se reparte.' : sobra > 0 ? `<span style="color:var(--amber)">⚠ El abono supera la deuda de las facturas ${elegir?'elegidas':'pendientes'} en ${clp(sobra)}. Solo se registrará ${clp(m - sobra)}.</span>` : `Se abonará a ${n} factura${n===1?'':'s'}.`; };
+  form.addEventListener('change', upd);
+  form.monto.addEventListener('input', () => { const n = parseMonto(form.monto.value); form.monto.value = n ? n.toLocaleString('es-CL') : ''; upd(); });
+  upd(); form.monto.focus();
+  form.onsubmit = async e => { e.preventDefault();
+    const { out } = reparto(), aplicar = out.filter(([,a]) => a > 0), fecha = form.fecha.value || t, medio = form.medio.value;
+    if (!aplicar.length) return toast(parseMonto(form.monto.value) ? 'Elige al menos una factura' : 'Indica el monto del abono');
+    const btn = form.querySelector('.btn-primary'); btn.disabled = true; btn.textContent = 'Guardando…';
+    try {
+      await Promise.all(aplicar.map(([g,a]) => { const liquida = a >= saldo(g);
+        const upd2 = { abonos:[...(g.abonos||[]), { fecha, monto:a, medio, por:state.user.email, general:true }], editadoPor:state.user.email, editadoEn:new Date().toISOString() };
+        if (liquida) Object.assign(upd2, { estado:'pagado', fechaPago:fecha, medioPago:medio });
+        return store.update('gastos', g.id, upd2); }));
+      const pagadas = aplicar.filter(([g,a]) => a >= saldo(g)).length;
+      closeModal(); toast(`Abono de ${clp(aplicar.reduce((x,[,a]) => x+a, 0))} registrado ✓${pagadas ? ` · ${pagadas} factura${pagadas===1?'':'s'} pagada${pagadas===1?'':'s'}` : ''}`);
+    } catch (err) { btn.disabled = false; btn.textContent = 'Reintentar'; toast('Error al guardar: ' + (err.code || err.message)); }
+  };
 }
 
 /* ---------- Gastos fijos ---------- */
@@ -786,9 +872,9 @@ function viewSueldos(v){
         return `<div class="row row-pp" style="cursor:default">
           <div><div class="r-title">${esc(n)} <span class="pill ${t.jornada==='part'?'amber':'purple'}">${JORNADAS[t.jornada]||'—'}</span></div>
             <div class="r-sub">Anticipos ${clp(a)} · Remuneración ${clp(r)}${o?' · Otros '+clp(o):''}${t.centro?' · '+esc(t.centro):''}</div></div>
-          <div class="r-state">${ps.length ? `<span class="pill green">${ps.length} pago${ps.length===1?'':'s'}</span>` : '<span class="pill gray">Sin pagos</span>'}</div>
+          <div class="r-state">${ps.length ? `<span class="pill green">✓ Pagado · ${ps.length} pago${ps.length===1?'':'s'}</span>` : '<span class="pill gray">Sin pagos este mes</span>'}</div>
           <div class="r-amt num">${clp(sum(ps))}</div>
-          <div class="r-act" style="text-align:right"><button class="btn btn-sm" data-pago-trab="${esc(n)}">Pagar</button></div></div>`; }).join('')
+          <div class="r-act" style="text-align:right"><button class="btn btn-sm" data-pago-trab="${esc(n)}" title="Registrar otro pago a este trabajador">＋ Nuevo pago</button></div></div>`; }).join('')
         : '<div class="empty">Agrega a tus trabajadores para registrar anticipos y remuneraciones.</div>'}
       ${pagos.length ? `<div class="group-h"><span>Detalle de pagos</span><span></span></div>${pagos.map(rowHTML).join('')}` : ''}
     </div>
@@ -985,11 +1071,13 @@ function gastoForm(g = {}){
     </div>
     <label data-show="factura" style="display:flex;gap:8px;align-items:center;font-size:13.5px;margin-top:-6px"><input type="checkbox" name="exenta" ${g.exenta?'checked':''}> Factura exenta de IVA</label>
     <label class="field"><span>Forma de pago</span>${seg('formaPago', PAGOS, g.formaPago)}</label>
+    <div class="note" data-show="factura" style="margin-top:-8px"><b>¿Factura de meses anteriores?</b> Pon su fecha original arriba. Si <b>aún no está pagada</b>, elige <b>Crédito</b> y su vencimiento: quedará en Por pagar (y podrás abonarle). Si ya se pagó, elige cómo se pagó.</div>
     <div id="creditoBox" class="box" style="display:grid;gap:10px">
       <div class="grid2">
         <label class="field"><span>Fecha de vencimiento</span><input class="input" type="date" name="vencimiento" value="${g.vencimiento||''}"></label>
         <label class="field"><span>Estado</span><select class="input" name="estado"><option value="pendiente" ${g.estado!=='pagado'?'selected':''}>Pendiente de pago</option><option value="pagado" ${g.estado==='pagado'?'selected':''}>Pagada</option></select></label>
       </div>
+      ${(g.abonos||[]).length ? `<div class="note" style="display:grid;gap:2px"><b style="color:var(--text)">Abonos registrados (${clp(abonado(g))})</b>${g.abonos.map((a,i) => `<span style="display:flex;justify-content:space-between;gap:8px"><span>${fdate(a.fecha)} · ${MEDIOS_PAGO_CREDITO[a.medio]||''} · ${clp(a.monto)}</span><button type="button" class="btn btn-sm btn-ghost" data-delabono="${i}" style="color:var(--red);padding:0 6px">quitar</button></span>`).join('')}</div>` : ''}
       <div class="chips" id="plazos"><span class="note" style="align-self:center">Plazo:</span>${[15,30,45,60,90].map(d => `<button type="button" class="chip" data-plazo="${d}">${d} días</button>`).join('')}</div>
       <div class="grid2" id="pagoCredito">
         <label class="field"><span>Fecha de pago</span><input class="input" type="date" name="fechaPago" value="${g.fechaPago||''}"></label>
@@ -1076,6 +1164,11 @@ function gastoForm(g = {}){
   form.formaPago.forEach?.(r => r.addEventListener('change', () => {
     if (r.checked && r.value === 'credito') { form.estado.value = g.formaPago === 'credito' ? g.estado : 'pendiente'; if (!form.vencimiento.value) form.vencimiento.value = addDays(form.fecha.value || today(), 30); upd(); }
   }));
+  form.querySelectorAll('[data-delabono]').forEach(b => b.onclick = async () => {
+    if (!confirm('¿Quitar este abono?')) return;
+    const abonos = (g.abonos||[]).filter((_,i) => i !== Number(b.dataset.delabono));
+    await store.update('gastos', g.id, { abonos, estado:'pendiente', fechaPago:'', medioPago:'' }); closeModal(); toast('Abono quitado');
+  });
   form.estado.addEventListener('change', () => { if (form.estado.value === 'pagado' && !form.fechaPago.value) form.fechaPago.value = today(); });
   form.foto.addEventListener('change', async () => {
     const file = form.foto.files[0]; if (!file) return;
@@ -1137,17 +1230,35 @@ function gastoForm(g = {}){
 }
 
 function payForm(g){
-  const body = `<div class="box"><b>${esc(g.proveedor)}</b><div class="note">Factura N° ${esc(g.numero||'s/n')} · vence ${fdate(g.vencimiento)}</div>
-      <div style="font-size:22px;font-weight:700;margin-top:6px" class="num">${clp(g.total)}</div></div>
+  const sal = saldo(g), ab = g.abonos || [];
+  const body = `<div class="box"><b>${esc(g.proveedor)}</b><div class="note">Factura N° ${esc(g.numero||'s/n')} · total ${clp(g.total)} · vence ${fdate(g.vencimiento)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px"><span class="note">Saldo pendiente</span><span style="font-size:22px;font-weight:700" class="num">${clp(sal)}</span></div>
+      ${ab.length ? `<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px">${ab.map(a => `<div class="note" style="display:flex;justify-content:space-between"><span>Abono ${fdate(a.fecha)} · ${MEDIOS_PAGO_CREDITO[a.medio]||''}</span><span class="num">${clp(a.monto)}</span></div>`).join('')}</div>` : ''}
+    </div>
+    <label class="field"><span>¿Qué vas a registrar?</span>${seg('tipoPago', { total:`Pago total (${clp(sal)})`, abono:'Abono parcial' }, 'total')}</label>
+    <label class="field" id="abonoBox" style="display:none"><span>Monto del abono</span><input class="input num" name="monto" inputmode="numeric" placeholder="$0" style="font-weight:600;font-size:17px"></label>
     <div class="grid2">
       <label class="field"><span>Fecha de pago</span><input class="input" type="date" name="fechaPago" value="${today()}" required></label>
-      <label class="field"><span>Pagada con</span><select class="input" name="medioPago">${Object.entries(MEDIOS_PAGO_CREDITO).map(([k,l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>
-    </div>`;
-  const form = openModal('Marcar factura como pagada', body, `<span class="spacer"></span><button type="button" class="btn" data-close2>Cancelar</button><button class="btn btn-primary">Confirmar pago</button>`);
+      <label class="field"><span>Pagado con</span><select class="input" name="medioPago">${Object.entries(MEDIOS_PAGO_CREDITO).map(([k,l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>
+    </div>
+    <div class="note" id="abonoInfo"></div>`;
+  const form = openModal('Pagar o abonar factura', body, `<span class="spacer"></span><button type="button" class="btn" data-close2>Cancelar</button><button class="btn btn-primary">Confirmar</button>`);
   form.querySelector('[data-close2]').onclick = closeModal;
-  form.onsubmit = async e => { e.preventDefault(); const fd = new FormData(form);
-    await store.update('gastos', g.id, { estado:'pagado', fechaPago:fd.get('fechaPago'), medioPago:fd.get('medioPago'), editadoPor:state.user.email, editadoEn:new Date().toISOString() });
-    closeModal(); toast('Factura marcada como pagada ✓'); };
+  const upd = () => { const tipo = form.tipoPago.value, m = parseMonto(form.monto.value);
+    $('#abonoBox', form).style.display = tipo === 'abono' ? '' : 'none';
+    $('#abonoInfo', form).textContent = tipo === 'abono' && m ? (m >= sal ? 'El abono cubre todo el saldo: la factura quedará pagada.' : `Quedará un saldo de ${clp(sal - m)}.`) : ''; };
+  form.addEventListener('change', upd);
+  form.monto.addEventListener('input', () => { const n = parseMonto(form.monto.value); form.monto.value = n ? n.toLocaleString('es-CL') : ''; upd(); });
+  form.onsubmit = async e => { e.preventDefault(); const fd = new FormData(form), tipo = fd.get('tipoPago');
+    const monto = tipo === 'abono' ? parseMonto(fd.get('monto')) : sal;
+    if (!monto) return toast('Indica el monto del abono');
+    const abonos = [...ab, { fecha:fd.get('fechaPago'), monto: Math.min(monto, sal), medio:fd.get('medioPago'), por:state.user.email }];
+    const liquida = monto >= sal;
+    const upd2 = { abonos, editadoPor:state.user.email, editadoEn:new Date().toISOString() };
+    if (liquida) Object.assign(upd2, { estado:'pagado', fechaPago:fd.get('fechaPago'), medioPago:fd.get('medioPago') });
+    try { await store.update('gastos', g.id, upd2); closeModal(); toast(liquida ? 'Factura pagada ✓' : `Abono registrado ✓ · saldo ${clp(sal - monto)}`); }
+    catch (err) { toast('Error al guardar: ' + (err.code || err.message)); }
+  };
 }
 
 function fijoForm(f = {}){
@@ -1201,11 +1312,11 @@ function compressImage(file, max = 1400, q = 0.6){
 function exportCSV(){
   const list = filteredGastos();
   const cols = [['fecha','Fecha'],['tipoDoc','Tipo'],['numero','N°'],['proveedor','Proveedor'],['rut','RUT'],['centro','Centro de costo'],['categoria','Categoría'],['descripcion','Descripción'],
-    ['neto','Neto'],['iva','IVA'],['total','Total'],['formaPago','Forma de pago'],['vencimiento','Vencimiento'],['estado','Estado'],['fechaPago','Fecha pago'],['medioPago','Pagada con'],['trabajador','Trabajador'],['jornada','Jornada'],['tipoPagoSueldo','Tipo pago sueldo'],['periodoSueldo','Mes sueldo'],['productos','Productos'],['creadoPor','Registrado por']];
+    ['neto','Neto'],['iva','IVA'],['total','Total'],['formaPago','Forma de pago'],['vencimiento','Vencimiento'],['estado','Estado'],['fechaPago','Fecha pago'],['medioPago','Pagada con'],['abonado','Abonado'],['saldo','Saldo'],['trabajador','Trabajador'],['jornada','Jornada'],['tipoPagoSueldo','Tipo pago sueldo'],['periodoSueldo','Mes sueldo'],['productos','Productos'],['creadoPor','Registrado por']];
   const q = v => { v = String(v ?? ''); return /[;"\n]/.test(v) ? `"${v.replace(/"/g,'""')}"` : v; };
-  const csv = '﻿' + [cols.map(c => c[1]).join(';'), ...list.map(g => cols.map(([k]) => q(k==='productos' ? (g.items||[]).map(i => `${i.producto} ${i.cantidad||''}${i.unidad||''} $${i.monto}`).join(' | ') : k==='tipoDoc' ? TIPOS[g.tipoDoc]||g.tipoDoc : g[k])).join(';'))].join('\n');
+  const csv = '﻿' + [cols.map(c => c[1]).join(';'), ...list.map(g => cols.map(([k]) => q(k==='productos' ? (g.items||[]).map(i => `${i.producto} ${i.cantidad||''}${i.unidad||''} $${i.monto}`).join(' | ') : k==='tipoDoc' ? TIPOS[g.tipoDoc]||g.tipoDoc : k==='abonado' ? abonado(g) : k==='saldo' ? saldo(g) : g[k])).join(';'))].join('\n');
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type:'text/csv;charset=utf-8' }));
-  a.download = `gastos_renni_${state.f.mes}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  a.download = `gastos_renni_${String(state.f.mes).replace(':','_')}${state.f.centro?'_'+state.f.centro.replace(/\s+/g,'-'):''}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 /* ================================================================
@@ -1221,7 +1332,7 @@ document.addEventListener('click', e => {
   if (d.editFijo) { const f = state.fijos.find(x => x.id === d.editFijo); if (f) fijoForm(f); return; }
   if (d.edit) { const g = state.gastos.find(x => x.id === d.edit); if (g) gastoForm(g); return; }
   if (d.mes) { state.dashMes = d.mes; render(); return; }
-  if (d.gotoGastos) { state.f = { ...state.f, mes:d.gotoGastos, centro:'', cat:'', tipo:'', pago:'', q:'' }; state.view = 'gastos'; render(); window.scrollTo(0,0); return; }
+  if (d.gotoGastos) { state.f = { ...state.f, mes:d.gotoGastos, centro:state.dashCentro||'', cat:'', tipo:'', pago:'', q:'' }; state.view = 'gastos'; render(); window.scrollTo(0,0); return; }
   if (d.nav) { state.view = d.nav; render(); window.scrollTo(0,0); return; }
   if (d.act === 'new') gastoForm();
   if (d.act === 'new-fijo') fijoForm();
