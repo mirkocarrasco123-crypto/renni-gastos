@@ -178,6 +178,9 @@ textarea.input{resize:vertical;min-height:60px}
 .x:hover{background:var(--surface-2)}
 .item-row{display:grid;grid-template-columns:minmax(0,2fr) 70px 92px minmax(0,1.2fr) 32px;gap:6px;align-items:center}
 @media (max-width:600px){.item-row{grid-template-columns:72px minmax(0,1fr) minmax(0,1.3fr) 32px;padding-bottom:8px;border-bottom:1px dashed var(--border-2)}.item-row [data-k=producto]{grid-column:1/-1}}
+.selbar{position:sticky;bottom:16px;margin-top:14px;background:#231b28;color:#fff;border-radius:14px;padding:10px 12px 10px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;box-shadow:0 10px 30px rgba(0,0,0,.25);z-index:15}
+.selbar .btn:not(.btn-primary){background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2);color:#fff}
+@media (max-width:899px){.selbar{position:fixed;left:12px;right:12px;bottom:84px;margin:0}}
 .photo-prev{max-width:100%;max-height:260px;border-radius:10px;border:1px solid var(--border);display:block}
 @keyframes fade{from{opacity:0}} @keyframes pop{from{transform:translateY(12px);opacity:0}}
 .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#231b28;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;z-index:60;box-shadow:0 8px 24px rgba(0,0,0,.25);animation:pop .2s}
@@ -316,7 +319,7 @@ const ic = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
 /* ================================================================
    3) CAPA DE DATOS (Firebase o demo local)
    ================================================================ */
-const state = { user:null, gastos:[], fijos:[], view:'dashboard', dashMes:curYM(), dashCentro:'', sueldoMes:curYM(), sbMes:curYM(),
+const state = { user:null, gastos:[], fijos:[], view:'dashboard', dashMes:curYM(), dashCentro:'', prov:'', ppPer:'todos', ppSel:new Set(), sueldoMes:curYM(), sbMes:curYM(),
   f:{ mes:curYM(), centro:'', cat:'', tipo:'', pago:'', q:'' }, ready:{gastos:false,fijos:false}, error:null };
 
 let store;
@@ -433,7 +436,11 @@ const weekLabel = ws => { const we = addDays(ws, 6), [, m1, d1] = ws.split('-').
   return m1 === m2 ? `${pad(d1)}–${pad(d2)} ${MES3[m2-1]}` : `${pad(d1)} ${MES3[m1-1]}–${pad(d2)} ${MES3[m2-1]}`; };
 const periodLabel = p => p === 'todos' ? 'todos los meses' : isWeek(p) ? 'semana ' + weekLabel(p.slice(2)) : ymLabel(p);
 const periodShort = p => isWeek(p) ? pad(Number(p.slice(10))) + ' ' + MES3[Number(p.slice(7,9))-1] : MES3[Number(p.slice(5))-1];
-const gastosPeriodo = (p, centro) => state.gastos.filter(g => inPeriod(g.fecha, p) && (!centro || g.centro === centro));
+const okProv = x => !state.prov || (x.proveedor||'') === state.prov;
+const gastosPeriodo = (p, centro) => state.gastos.filter(g => inPeriod(g.fecha, p) && (!centro || g.centro === centro) && okProv(g));
+const provList = () => [...new Set([...state.gastos.filter(g => g.tipoDoc !== 'sueldo').map(g => g.proveedor), ...state.fijos.map(f => f.proveedor), state.prov].filter(Boolean))].sort((a,b) => a.localeCompare(b, 'es'));
+const provSelect = () => `<select class="input" data-prov style="width:auto;max-width:220px${state.prov?';border-color:var(--brand);color:var(--brand);font-weight:600':''}"><option value="">Todos los proveedores</option>${provList().map(p => `<option ${p===state.prov?'selected':''}>${esc(p)}</option>`).join('')}</select>`;
+document.addEventListener('change', e => { if (e.target.matches?.('[data-prov]')) { state.prov = e.target.value; render(); } });
 /* Abonos a facturas a crédito */
 const abonado = g => (g.abonos||[]).reduce((a,x) => a + (Number(x.monto)||0), 0);
 const saldo = g => g.formaPago === 'credito' && g.estado !== 'pagado' ? Math.max(0, (Number(g.total)||0) - abonado(g)) : 0;
@@ -549,9 +556,9 @@ function viewDashboard(v){
   const P = state.dashMes, C = state.dashCentro, wk = isWeek(P);
   const ym = wk ? P.slice(2,9) : P;
   const g = gastosPeriodo(P, C), total = sum(g), prev = sum(gastosPeriodo(prevPeriod(P), C));
-  const t = today(), pend = pendientes().filter(x => !C || x.centro === C), venc = pend.filter(x => x.vencimiento && x.vencimiento < t);
-  const al = alertas().filter(a => !C || (a.tipo === 'fijo' ? a.f.centro : a.g.centro) === C);
-  const fijosAct = state.fijos.filter(f => f.activo !== false && (!f.desde || f.desde <= ym) && (!C || f.centro === C));
+  const t = today(), pend = pendientes().filter(x => (!C || x.centro === C) && okProv(x)), venc = pend.filter(x => x.vencimiento && x.vencimiento < t);
+  const al = alertas().filter(a => (!C || (a.tipo === 'fijo' ? a.f.centro : a.g.centro) === C) && okProv(a.tipo === 'fijo' ? a.f : a.g));
+  const fijosAct = state.fijos.filter(f => f.activo !== false && (!f.desde || f.desde <= ym) && (!C || f.centro === C) && okProv(f));
   const fijosPag = fijosAct.filter(f => fijoPagado(f, ym));
   const delta = prev ? Math.round((total - prev) / prev * 100) : null;
   const periods = Array.from({length: wk ? 8 : 6}, (_,i) => prevPeriod(P, i - (wk ? 7 : 5)));
@@ -573,8 +580,8 @@ function viewDashboard(v){
 
   v.innerHTML = `
   <div class="page-head">
-    <div><h2>Resumen de gastos</h2><div class="sub">${C ? esc(C) + ' · ' : ''}Gastos por fecha de documento</div></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap"><select class="input" id="dashMes" style="width:auto">${periodOptions(P)}</select>${centroSelect('dashCentro', C)}</div>
+    <div><h2>Resumen de gastos</h2><div class="sub">${C ? esc(C) + ' · ' : ''}${state.prov ? esc(state.prov) + ' · ' : ''}Gastos por fecha de documento</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><select class="input" id="dashMes" style="width:auto">${periodOptions(P)}</select>${centroSelect('dashCentro', C)}${provSelect()}</div>
   </div>
   ${al.length ? `<div class="alerts">${al.slice(0,4).map(alertHTML).join('')}${al.length>4?`<button class="btn btn-sm" style="justify-self:start" data-nav="porpagar">Ver ${al.length-4} alerta${al.length-4===1?'':'s'} más</button>`:''}</div>` : ''}
   <div class="kpis">
@@ -631,7 +638,7 @@ const centroSelect = (id, val, allLabel = 'Todos los locales') => `<select class
 function filteredGastos(){
   const f = state.f, q = f.q.trim().toLowerCase();
   return state.gastos.filter(g =>
-    inPeriod(g.fecha, f.mes) && (!f.centro || g.centro === f.centro) && (!f.cat || g.categoria === f.cat) &&
+    inPeriod(g.fecha, f.mes) && okProv(g) && (!f.centro || g.centro === f.centro) && (!f.cat || g.categoria === f.cat) &&
     (!f.tipo || g.tipoDoc === f.tipo) && (!f.pago || g.formaPago === f.pago) &&
     (!q || [g.proveedor,g.numero,g.descripcion,g.rut].join(' ').toLowerCase().includes(q))
   ).sort((a,b) => (b.fecha||'').localeCompare(a.fecha||'') || (b.creadoEn||'').localeCompare(a.creadoEn||''));
@@ -668,6 +675,7 @@ function viewGastos(v){
   <div class="filters">
     <input class="input search" data-f="q" placeholder="Buscar proveedor, N°, descripción…" value="${esc(f.q)}">
     <select class="input" data-f="mes">${periodOptions(f.mes, true)}</select>
+    ${provSelect()}
     ${sel('centro', CENTS().map(c=>[c,c]), 'Todos los centros')}
     ${sel('cat', CATS().map(c=>[c,c]), 'Todas las categorías')}
     ${sel('tipo', Object.entries(TIPOS), 'Todo tipo de doc.')}
@@ -686,25 +694,26 @@ function viewGastos(v){
 
 /* ---------- Por pagar ---------- */
 function viewPorPagar(v){
-  const t = today(), pend = pendientes();
+  const t = today(), PP = state.ppPer, pend = pendientes().filter(g => okProv(g) && (PP === 'todos' || inPeriod(g.vencimiento, PP)));
   const groups = [
     ['Vencidas','red', pend.filter(g => g.vencimiento && g.vencimiento < t)],
     [`Vencen en los próximos ${AVISO_FACTURAS_DIAS} días`,'amber', pend.filter(g => g.vencimiento && g.vencimiento >= t && diffDays(g.vencimiento,t) <= AVISO_FACTURAS_DIAS)],
     ['Más adelante','', pend.filter(g => !g.vencimiento || diffDays(g.vencimiento,t) > AVISO_FACTURAS_DIAS)],
   ];
   const porProv = {}; pend.forEach(g => { const k = g.proveedor||'Sin proveedor'; (porProv[k] ||= {n:0,t:0,v:0}); porProv[k].n++; porProv[k].t += saldo(g); if (g.vencimiento && g.vencimiento < t) porProv[k].v += saldo(g); });
-  const fp = fijosPendientes();
+  const fp = fijosPendientes().filter(x => okProv(x.f) && (PP === 'todos' || inPeriod(x.due, PP)));
   v.innerHTML = `
   <div class="page-head"><div><h2>Facturas por pagar</h2><div class="sub">Facturas a crédito pendientes, ordenadas por vencimiento</div></div>
     <button class="btn btn-primary btn-desk" data-act="new">${ic('plus')} Nuevo gasto</button></div>
+  <div class="filters"><select class="input" id="ppPer"><option value="todos" ${PP==='todos'?'selected':''}>Vencen: cualquier fecha</option>${periodOptions(PP).replace(/<optgroup label="Por mes">/,'<optgroup label="Vencen en el mes">').replace(/<optgroup label="Por semana">/,'<optgroup label="Vencen en la semana">')}</select>${provSelect()}</div>
   <div class="pp-grid">
     <div class="card" style="overflow:hidden">
-      <div class="list-sum"><span>${pend.length} factura${pend.length===1?'':'s'} pendiente${pend.length===1?'':'s'}</span><span>Deuda total <b class="num">${clp(sumSaldo(pend))}</b></span></div>
+      <div class="list-sum"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="selAll" ${pend.length && pend.every(g => state.ppSel.has(g.id))?'checked':''} style="width:18px;height:18px"> ${pend.length} factura${pend.length===1?'':'s'} pendiente${pend.length===1?'':'s'}</label><span>Deuda total <b class="num">${clp(sumSaldo(pend))}</b></span></div>
       ${pend.length ? groups.filter(gr => gr[2].length).map(([title,cls,list]) => `
         <div class="group-h ${cls}"><span>${title}</span><span class="num">${clp(sumSaldo(list))}</span></div>
         ${list.map(g => { const d = g.vencimiento ? diffDays(g.vencimiento,t) : null; return `
           <div class="row row-pp" data-edit="${g.id}">
-            <div><div class="r-title">${esc(g.proveedor)}</div><div class="r-sub">Factura N° ${esc(g.numero||'s/n')} · ${esc(g.centro)} · emitida ${fdate(g.fecha)}</div></div>
+            <div><div class="r-title"><input type="checkbox" data-sel="${g.id}" ${state.ppSel.has(g.id)?'checked':''} style="width:18px;height:18px;flex:none;margin:0 4px 0 0;cursor:pointer" title="Seleccionar">${esc(g.proveedor)}</div><div class="r-sub">Factura N° ${esc(g.numero||'s/n')} · ${esc(g.centro)} · emitida ${fdate(g.fecha)}</div></div>
             <div class="r-state"><span class="pill ${d===null?'gray':d<0?'red':d<=AVISO_FACTURAS_DIAS?'amber':'gray'}">${d===null?'Sin vencimiento':fdate(g.vencimiento)+' · '+relDays(d)}</span></div>
             <div class="r-amt num">${clp(saldo(g))}${abonado(g) ? `<div class="note" style="font-weight:400">de ${clp(g.total)} · abonado ${clp(abonado(g))}</div>` : ''}</div>
             <div class="r-act" style="text-align:right"><button class="btn btn-sm" data-pay="${g.id}">Pagar / abonar</button></div>
@@ -722,31 +731,51 @@ function viewPorPagar(v){
       </div></div>
     </div>
   </div>`;
+  $('#ppPer').onchange = e => { state.ppPer = e.target.value; render(); };
+  v.querySelectorAll('[data-sel]').forEach(cb => cb.onclick = e => { e.stopPropagation(); cb.checked ? state.ppSel.add(cb.dataset.sel) : state.ppSel.delete(cb.dataset.sel); render(); });
+  $('#selAll').onclick = e => { const on = e.target.checked; pend.forEach(g => on ? state.ppSel.add(g.id) : state.ppSel.delete(g.id)); render(); };
+  const selFacs = pendientes().filter(g => state.ppSel.has(g.id));
+  state.ppSel = new Set(selFacs.map(g => g.id));
+  if (selFacs.length) {
+    const bar = document.createElement('div'); bar.className = 'selbar';
+    bar.innerHTML = `<div><b>${selFacs.length} seleccionada${selFacs.length===1?'':'s'}</b><div class="num">${clp(sumSaldo(selFacs))}</div></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button class="btn btn-sm" data-s="abonar">Abonar</button><button class="btn btn-sm btn-orange btn-primary" data-s="pagar">Pagar todas</button><button class="x" data-s="clear" title="Quitar selección" style="color:#fff">${ic('x')}</button></div>`;
+    v.appendChild(bar);
+    const done = () => { state.ppSel.clear(); render(); };
+    bar.querySelector('[data-s=abonar]').onclick = e => { e.stopPropagation(); abonoForm(selFacs, `${selFacs.length} facturas seleccionadas`, 'Abonar a facturas seleccionadas', 0, done); };
+    bar.querySelector('[data-s=pagar]').onclick = e => { e.stopPropagation(); abonoForm(selFacs, `${selFacs.length} facturas seleccionadas`, 'Pagar facturas seleccionadas', sumSaldo(selFacs), done); };
+    bar.querySelector('[data-s=clear]').onclick = e => { e.stopPropagation(); done(); };
+  }
   v.querySelectorAll('[data-abprov]').forEach(b => b.onclick = e => { e.stopPropagation(); abonoProveedorForm(b.dataset.abprov); });
 }
 
 /* Abono general a la cuenta de un proveedor: se reparte entre sus facturas pendientes */
+const ordenVenc = (a,b) => (a.vencimiento||a.fecha||'9').localeCompare(b.vencimiento||b.fecha||'9') || (a.fecha||'').localeCompare(b.fecha||'');
 function abonoProveedorForm(prov){
-  const facs = pendientes().filter(g => (g.proveedor||'Sin proveedor') === prov)
-    .sort((a,b) => (a.vencimiento||a.fecha||'9').localeCompare(b.vencimiento||b.fecha||'9') || (a.fecha||'').localeCompare(b.fecha||''));
+  abonoForm(pendientes().filter(g => (g.proveedor||'Sin proveedor') === prov).sort(ordenVenc), prov, 'Abono a proveedor');
+}
+function abonoForm(facs, titulo, modalTitle, montoIni, onDone){
+  facs = [...facs].sort(ordenVenc);
+  const multiProv = new Set(facs.map(g => g.proveedor)).size > 1;
   const deuda = sumSaldo(facs), t = today();
   const body = `
-    <div class="box"><b>${esc(prov)}</b><div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px"><span class="note">${facs.length} factura${facs.length===1?'':'s'} pendiente${facs.length===1?'':'s'}</span><span class="num" style="font-size:22px;font-weight:700">${clp(deuda)}</span></div></div>
-    <label class="field"><span>Monto del abono</span><input class="input num" name="monto" inputmode="numeric" placeholder="$0" style="font-weight:600;font-size:17px"></label>
+    <div class="box"><b>${esc(titulo)}</b><div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px"><span class="note">${facs.length} factura${facs.length===1?'':'s'} pendiente${facs.length===1?'':'s'}</span><span class="num" style="font-size:22px;font-weight:700">${clp(deuda)}</span></div></div>
+    <label class="field"><span>${montoIni ? 'Monto a pagar' : 'Monto del abono'}</span><input class="input num" name="monto" inputmode="numeric" placeholder="$0" style="font-weight:600;font-size:17px"></label>
     <label class="field"><span>¿A qué facturas se aplica?</span>${seg('modo', { antiguas:'A las más antiguas primero', elegir:'Elegir facturas' }, 'antiguas')}</label>
     <div class="box" style="display:grid;gap:0;padding:4px 12px" id="facList">${facs.map((g,i) => { const d = g.vencimiento ? diffDays(g.vencimiento, t) : null; return `
       <label style="display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;${i?'border-top:1px solid var(--border)':''}">
         <input type="checkbox" data-fac="${g.id}" checked style="width:18px;height:18px">
-        <span style="min-width:0"><b style="font-size:13.5px">N° ${esc(g.numero||'s/n')}</b> <span class="note">· ${fdate(g.fecha)}</span><br>
+        <span style="min-width:0">${multiProv ? `<span style="font-size:13px">${esc(g.proveedor)}</span><br>` : ''}<b style="font-size:13.5px">N° ${esc(g.numero||'s/n')}</b> <span class="note">· ${fdate(g.fecha)}</span><br>
           <span class="pill ${d===null?'gray':d<0?'red':d<=AVISO_FACTURAS_DIAS?'amber':'gray'}">${d===null?'Sin vencimiento':'vence '+fdate(g.vencimiento)}</span></span>
         <span style="text-align:right"><span class="num" style="font-weight:600">${clp(saldo(g))}</span><br><span class="note num" data-prev="${g.id}"></span></span>
       </label>`; }).join('')}</div>
     <div class="grid2">
-      <label class="field"><span>Fecha del abono</span><input class="input" type="date" name="fecha" value="${t}"></label>
+      <label class="field"><span>Fecha de pago</span><input class="input" type="date" name="fecha" value="${t}"></label>
       <label class="field"><span>Pagado con</span><select class="input" name="medio">${Object.entries(MEDIOS_PAGO_CREDITO).map(([k,l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>
     </div>
     <div class="note" id="abInfo"></div>`;
-  const form = openModal('Abono a proveedor', body, `<span class="spacer"></span><button type="button" class="btn" data-close2>Cancelar</button><button class="btn btn-primary">Registrar abono</button>`);
+  const form = openModal(modalTitle, body, `<span class="spacer"></span><button type="button" class="btn" data-close2>Cancelar</button><button class="btn btn-primary">${montoIni ? 'Registrar pago' : 'Registrar abono'}</button>`);
+  if (montoIni) form.monto.value = Math.round(montoIni).toLocaleString('es-CL');
   form.querySelector('[data-close2]').onclick = closeModal;
   const boxes = [...form.querySelectorAll('[data-fac]')];
   const reparto = () => { let rest = parseMonto(form.monto.value); const elegir = form.modo.value === 'elegir', out = [];
@@ -771,7 +800,7 @@ function abonoProveedorForm(prov){
         if (liquida) Object.assign(upd2, { estado:'pagado', fechaPago:fecha, medioPago:medio });
         return store.update('gastos', g.id, upd2); }));
       const pagadas = aplicar.filter(([g,a]) => a >= saldo(g)).length;
-      closeModal(); toast(`Abono de ${clp(aplicar.reduce((x,[,a]) => x+a, 0))} registrado ✓${pagadas ? ` · ${pagadas} factura${pagadas===1?'':'s'} pagada${pagadas===1?'':'s'}` : ''}`);
+      closeModal(); onDone?.(); toast(`${montoIni ? 'Pago' : 'Abono'} de ${clp(aplicar.reduce((x,[,a]) => x+a, 0))} registrado ✓${pagadas ? ` · ${pagadas} factura${pagadas===1?'':'s'} pagada${pagadas===1?'':'s'}` : ''}`);
     } catch (err) { btn.disabled = false; btn.textContent = 'Reintentar'; toast('Error al guardar: ' + (err.code || err.message)); }
   };
 }
@@ -779,11 +808,12 @@ function abonoProveedorForm(prov){
 /* ---------- Gastos fijos ---------- */
 function viewFijos(v){
   const ym = curYM(), t = today();
-  const list = [...state.fijos].sort((a,b) => (b.activo!==false) - (a.activo!==false) || Number(a.dia) - Number(b.dia));
+  const list = state.fijos.filter(okProv).sort((a,b) => (b.activo!==false) - (a.activo!==false) || Number(a.dia) - Number(b.dia));
   const totalMes = list.filter(f => f.activo !== false).reduce((a,f) => a + Number(f.monto||0), 0);
   v.innerHTML = `
   <div class="page-head"><div><h2>Gastos fijos</h2><div class="sub">Arriendos, servicios y pagos mensuales con alerta · estado de ${ymLabel(ym)}</div></div>
-    <button class="btn btn-primary" data-act="new-fijo">${ic('plus')} Nuevo gasto fijo</button></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${provSelect()}
+    <button class="btn btn-primary" data-act="new-fijo">${ic('plus')} Nuevo gasto fijo</button></div></div>
   <div class="card">
     <div class="list-sum"><span>${list.filter(f=>f.activo!==false).length} activos</span><span>Total mensual aprox. <b class="num">${clp(totalMes)}</b></span></div>
     ${list.length ? list.map(f => {
@@ -850,13 +880,13 @@ function moreMenu(){
 /* ---------- Sueldos ---------- */
 function viewSueldos(v){
   const ym = state.sueldoMes;
-  const pagos = state.gastos.filter(g => g.tipoDoc === 'sueldo' && (g.periodoSueldo || (g.fecha||'').slice(0,7)) === ym).sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+  const pagos = state.gastos.filter(g => g.tipoDoc === 'sueldo' && (isWeek(ym) ? inPeriod(g.fecha, ym) : (g.periodoSueldo || (g.fecha||'').slice(0,7)) === ym)).sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
   const tot = k => sum(pagos.filter(g => g.tipoPagoSueldo === k));
   const nombres = [...new Set([...TRABS().filter(t => t.activo !== false).map(t => t.nombre), ...pagos.map(g => g.trabajador)])];
   const meses = new Set([curYM(), ym, ...state.gastos.filter(g => g.tipoDoc==='sueldo').map(g => g.periodoSueldo).filter(Boolean)]);
   v.innerHTML = `
   <div class="page-head"><div><h2>Sueldos</h2><div class="sub">Anticipos, remuneraciones y bonos por trabajador</div></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap"><select class="input" id="sMes" style="width:auto">${[...meses].sort().reverse().map(m => `<option value="${m}" ${m===ym?'selected':''}>${ymLabel(m).replace(/^./,c=>c.toUpperCase())}</option>`).join('')}</select>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><select class="input" id="sMes" style="width:auto">${periodOptions(ym)}</select>
     <button class="btn btn-primary" data-act="pago-sueldo">${ic('plus')} Registrar pago</button></div></div>
   <div class="kpis">
     <div class="card kpi"><div class="l">Total pagado</div><div class="v num">${clp(sum(pagos))}</div><div class="d">${pagos.length} pago${pagos.length===1?'':'s'}</div></div>
@@ -866,7 +896,7 @@ function viewSueldos(v){
   </div>
   <div class="pp-grid">
     <div class="card" style="overflow:hidden">
-      <div class="group-h"><span>Por trabajador · ${ymLabel(ym)}</span><span class="num">${clp(sum(pagos))}</span></div>
+      <div class="group-h"><span>Por trabajador · ${periodLabel(ym)}${isWeek(ym)?' (por fecha de pago)':''}</span><span class="num">${clp(sum(pagos))}</span></div>
       ${nombres.length ? nombres.map(n => { const t = TRABS().find(x => x.nombre === n) || {}, ps = pagos.filter(g => g.trabajador === n);
         const a = sum(ps.filter(g => g.tipoPagoSueldo==='anticipo')), r = sum(ps.filter(g => g.tipoPagoSueldo==='remuneracion')), o = sum(ps) - a - r;
         return `<div class="row row-pp" style="cursor:default">
@@ -886,16 +916,16 @@ function viewSueldos(v){
   </div>`;
   $('#sMes').onchange = e => { state.sueldoMes = e.target.value; render(); };
   v.querySelectorAll('[data-pago-trab]').forEach(b => b.onclick = () => { const t = TRABS().find(x => x.nombre === b.dataset.pagoTrab) || {};
-    gastoForm({ tipoDoc:'sueldo', trabajador:b.dataset.pagoTrab, centro: CENTS().includes(t.centro) ? t.centro : CENTS()[0], periodoSueldo:ym, formaPago:'transferencia' }); });
+    gastoForm({ tipoDoc:'sueldo', trabajador:b.dataset.pagoTrab, centro: CENTS().includes(t.centro) ? t.centro : CENTS()[0], periodoSueldo: isWeek(ym) ? ym.slice(2,9) : ym, formaPago:'transferencia' }); });
   v.querySelectorAll('[data-edit-trab]').forEach(b => b.onclick = () => trabajadorForm(TRABS().find(x => x.nombre === b.dataset.editTrab)));
   v.querySelector('[data-act=new-trab]').onclick = e => { e.stopPropagation(); trabajadorForm(); };
-  v.querySelector('[data-act=pago-sueldo]').onclick = e => { e.stopPropagation(); gastoForm({ tipoDoc:'sueldo', periodoSueldo:ym, formaPago:'transferencia' }); };
+  v.querySelector('[data-act=pago-sueldo]').onclick = e => { e.stopPropagation(); gastoForm({ tipoDoc:'sueldo', periodoSueldo: isWeek(ym) ? ym.slice(2,9) : ym, formaPago:'transferencia' }); };
 }
 
 /* ---------- Compras sin boleta ---------- */
 function viewSinBoleta(v){
   const ym = state.sbMes, all = state.gastos.filter(g => g.tipoDoc === 'sindoc');
-  const list = all.filter(g => ym === 'todos' || (g.fecha||'').startsWith(ym)).sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+  const list = all.filter(g => inPeriod(g.fecha, ym) && okProv(g)).sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
   const prods = {}; list.forEach(g => (g.items||[]).forEach(i => { const k = i.producto.trim().toLowerCase(); const p = prods[k] ||= { nombre:i.producto, monto:0, veces:0, cant:{} };
     p.monto += i.monto||0; p.veces++; if (i.cantidad) p.cant[i.unidad] = (p.cant[i.unidad]||0) + i.cantidad; }));
   const top = Object.values(prods).sort((a,b) => b.monto - a.monto);
@@ -903,12 +933,12 @@ function viewSinBoleta(v){
   const fmtQ = n => Number(n.toFixed(2)).toLocaleString('es-CL');
   v.innerHTML = `
   <div class="page-head"><div><h2>Compras sin boleta</h2><div class="sub">Productos comprados sin boleta ni factura (feria, vendedores informales…)</div></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap"><select class="input" id="sbMes" style="width:auto"><option value="todos" ${ym==='todos'?'selected':''}>Todos los meses</option>${[...meses].sort().reverse().map(m => `<option value="${m}" ${m===ym?'selected':''}>${ymLabel(m).replace(/^./,c=>c.toUpperCase())}</option>`).join('')}</select>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><select class="input" id="sbMes" style="width:auto">${periodOptions(ym, true)}</select>${provSelect()}
     <button class="btn btn-primary" data-act="new-sb">${ic('plus')} Registrar compra</button></div></div>
   <div class="kpis">
     <div class="card kpi"><div class="l">Total sin respaldo</div><div class="v num">${clp(sum(list))}</div><div class="d">${list.length} compra${list.length===1?'':'s'}</div></div>
     <div class="card kpi"><div class="l">Productos distintos</div><div class="v num">${top.length}</div></div>
-    <div class="card kpi"><div class="l">% del gasto ${ym==='todos'?'total':'del mes'}</div><div class="v num">${(() => { const t = ym==='todos' ? sum(state.gastos) : sum(gastosMes(ym)); return t ? Math.round(sum(list)/t*100) : 0; })()}%</div></div>
+    <div class="card kpi"><div class="l">% del gasto ${ym==='todos'?'total':isWeek(ym)?'de la semana':'del mes'}</div><div class="v num">${(() => { const t = sum(state.gastos.filter(g => inPeriod(g.fecha, ym))); return t ? Math.round(sum(list)/t*100) : 0; })()}%</div></div>
     <div class="card kpi"><div class="l">Compra promedio</div><div class="v num">${clp(list.length ? sum(list)/list.length : 0)}</div></div>
   </div>
   <div class="pp-grid">
